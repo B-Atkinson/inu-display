@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message(STATUS "CXX compiler: ${CMAKE_CXX_COMPILER}")
 
 find_package(Eigen3 CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+
+file(GLOB_RECURSE PROJ_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE PROJ_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp")
 
 set(SH2_DIR ${CMAKE_SOURCE_DIR}/third_party/sh2)
 
@@ -21,38 +25,38 @@ target_include_directories(sh2 PUBLIC ${SH2_DIR})
 
 find_library(I2C_LIB i2c REQUIRED)
 
-add_executable(bno085_reader
-	${CMAKE_SOURCE_DIR}/src/main.cpp
-	${CMAKE_SOURCE_DIR}/src/demo.cpp
-    ${CMAKE_SOURCE_DIR}/src/demo2.cpp
-	${CMAKE_SOURCE_DIR}/src/bno085_hal.cpp
+add_library(IMUPROC_LIB
+		${PROJ_SRC}
 )
 
-target_link_libraries(bno085_reader
+target_include_directories(IMUPROC_LIB PUBLIC ${CMAKE_SOURCE_DIR}/src ${SH2_DIR})
+target_link_libraries(IMUPROC_LIB PUBLIC Eigen3::Eigen)
+
+add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/main.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE IMUPROC_LIB sh2 ${I2C_LIB})
+
+file(GLOB_RECURSE TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
+
+ enable_testing()
+ add_executable(${PROJECT_NAME}_tests
+     ${TEST_SRC}
+)
+target_link_libraries(${PROJECT_NAME}_tests
     PRIVATE
-        sh2
-        ${I2C_LIB}
-        # your vcpkg deps here, e.g. fmt::fmt
+         IMUPROC_LIB
+         sh2
+         ${I2C_LIB}
+         GTest::gtest
+         GTest::gtest_main
+         GTest::gmock
+         GTest::gmock_main
 )
 
-# enable_testing()
-# add_executable(${PROJECT_NAME}_tests
-#     ${CMAKE_SOURCE_DIR}/tests/test_IMUGPSFusionKF.cpp
-# )
-# target_link_libraries(${PROJECT_NAME}_tests
-#     PRIVATE
-#         IMUGPSFusionKF_lib
-#         GTest::gtest
-#         GTest::gtest_main
-#         GTest::gmock
-#         GTest::gmock_main
-# )
+ include(GoogleTest)
+ gtest_discover_tests(${PROJECT_NAME}_tests)
 
-# include(GoogleTest)
-# gtest_discover_tests(${PROJECT_NAME}_tests)
-
-# add_custom_command(TARGET ${PROJECT_NAME}_tests POST_BUILD
-#     COMMAND ${PROJECT_NAME}_tests
-#     WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}_tests>
-#     COMMENT "Running ${PROJECT_NAME}_tests"
-# )
+ add_custom_command(TARGET ${PROJECT_NAME}_tests POST_BUILD
+     COMMAND ${PROJECT_NAME}_tests
+     WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}_tests>
+     COMMENT "Running ${PROJECT_NAME}_tests"
+ )
