@@ -8,9 +8,6 @@ const int MagneticDeclination::N = 12;
 const double MagneticDeclination::A = 6378137;
 const double MagneticDeclination::F = 1.0 / 298.257223563;
 const double MagneticDeclination::E = sqrt( F * ( 2 - F ) );
-double *MagneticDeclination::legendrePolynomialMatrix;
-std::map<std::pair<int, int>, NOAA_COF_COEFFS> MagneticDeclination::m_coeffMap;
-double MagneticDeclination::m_epoch;
 
 MagneticDeclination::MagneticDeclination()
 {
@@ -19,14 +16,13 @@ MagneticDeclination::MagneticDeclination()
 
 MagneticDeclination::~MagneticDeclination()
 {
-    free(legendrePolynomialMatrix);
+    // delete[] legendrePolynomialMatrix;
 }
-
 
 void MagneticDeclination::SetAssociatedPolynomialMatrix(double x) {
-    legendrePolynomialMatrix = CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(N, N, x);
-
+    CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(N, N, x);
 }
+
 double MagneticDeclination::declination(double lambda, double phi, double h, double t)
 {
     double sinPhi = sin(phi);
@@ -36,17 +32,11 @@ double MagneticDeclination::declination(double lambda, double phi, double h, dou
     double r = sqrt(_p * _p + _z * _z);
     double phiPrime = asin(_z/ r);
 
-    // std::cout << "test1" << std::endl;
-
     SetAssociatedPolynomialMatrix(sin(phiPrime));
     
-    // std::cout << "test2" << std::endl;
-
     double x = xPrime(lambda, phiPrime, r, t) * cos(phiPrime - phi) - zPrime(lambda, phiPrime, r, t) * sin(phiPrime - phi);
-    // std::cout << "test3" << std::endl;
 
     double y = yPrime(lambda, phiPrime, r, t);
-    // std::cout << "test4" << std::endl;
 
     return atan2(y, x);
 }
@@ -72,12 +62,12 @@ double MagneticDeclination::v(double lambda, double phiPrime, double r, double t
 
 double MagneticDeclination::g(int n, int m, int t)
 {
-    return getG(n, m) + (t - MagneticDeclination::m_epoch) * getGDot(n, m);
+    return getG(n, m) + (t - this->m_epoch) * getGDot(n, m);
 }
 
 double MagneticDeclination::h(int n, int m, int t)
 {
-    return getH(n, m) + (t - MagneticDeclination::m_epoch) * getHDot(n, m);
+    return getH(n, m) + (t - this->m_epoch) * getHDot(n, m);
 }
 
 double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, int t)
@@ -215,9 +205,7 @@ double MagneticDeclination::associatedLegendrePolynomial(double u, int n, int m)
     double coeff = 1 - u * u;
     double sign = (m & 0x1) == 0 ? 1.0 : -1.0;
 
-    // std::cout << legendrePolynomialMatrix[(N + 1) * (n - 1) + m] << " " << (N + 1) * (n - 1) + m << std::endl;
-
-    return sign * sqrt(pow(coeff, m)) * legendrePolynomialMatrix[(N + 1) * (n - 1) + m];
+    return sign * pow(coeff, m / 2.0) * legendrePolynomialMatrix[(N + 1) * n + m];
 }
 
 double MagneticDeclination::dPHatdPhiPrime(double phiPrime, int n, int m)
@@ -270,47 +258,53 @@ double MagneticDeclination::Binomial(int n, int r) {
     return FallingFactorial(n, r) / FallingFactorial(r, r);
 }
 
-double* MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(unsigned M, unsigned L, double x) {
-    double* array = (double*)malloc(sizeof(double) * L * (M + 1));
+void 
+MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(unsigned M,unsigned L,double x) {
+    const unsigned rows = L + 1;
+    const unsigned cols = M + 1;
 
-    for (int l = 1; l <= L; l++) {
-        double twoToTheL = static_cast<double>(std::pow(2, l));
+    free(this->legendrePolynomialMatrix);
 
-        double zerothCombinatorialSum = 0.0;
+    this->legendrePolynomialMatrix = static_cast<double*>(calloc(rows * cols, sizeof(double)));
 
-        for (int k = static_cast<int>((l + 1) / 2); k <= l; k++) {
-            double twoKL = 2 * static_cast<double>(k) - static_cast<double>(l);
-            
-            double sign = ((k + l) & 0x1) == 0 ? 1.0 : -1.0;
-            double factorialTerm = sign * Binomial(2 * k, l) * Binomial(l, k);
+    auto index = [cols](unsigned l, unsigned m) {
+        return cols * l + m;
+    };
 
-            zerothCombinatorialSum += factorialTerm * std::pow(x, twoKL);
-        }
+    this->legendrePolynomialMatrix[index(0, 0)] = 1.0;
 
-        array[ (M + 1) * (l - 1) ] = zerothCombinatorialSum / twoToTheL;
+    for (unsigned l = 1; l <= L; l++) {
+        double twoToTheL = std::ldexp(1.0, static_cast<int>(l)); 
 
-        for (int m = 1; m <= M; m++) {
+        for (unsigned m = 0; m <= M; m++) {
             double combinatorialSum = 0.0;
 
-            for (int k = static_cast<int>((l + 1) / 2); k <= l; k++) {
-                double twoKL = 2 * static_cast<double>(k) - static_cast<double>(l);
+            if (m <= l) {
+                unsigned kStart = (l + m + 1) / 2; 
 
-                double sign = ((k + l) & 0x1) == 0 ? 1.0 : -1.0;
-                double factorialTerm = sign * Binomial(2 * k, l) * Binomial(l, k);
+                for (unsigned k = kStart; k <= l; k++) {
+                    int twoKL = 2 * static_cast<int>(k) - static_cast<int>(l);
+                    int exponent = twoKL - static_cast<int>(m);
+                    double sign = ((k + l) & 0x1) == 0 ? 1.0 : -1.0;
+                    double factorialTerm = sign * Binomial(2 * k, l) * Binomial(l, k);
 
-                combinatorialSum += factorialTerm * FallingFactorial(twoKL, m) * std::pow(x, twoKL - static_cast<double>(m));
+                    combinatorialSum += factorialTerm * FallingFactorial(twoKL, m) * std::pow(x, exponent);
+                }
             }
-            array[ (M + 1) * (l - 1) + m ] = combinatorialSum / twoToTheL;
-        }    
-    }
 
-    return array;
+            this->legendrePolynomialMatrix[index(l, m)] = combinatorialSum / twoToTheL;
+        }
+    }
+}
+
+double* MagneticDeclination::GetMthLthOrderAssociatedLegrandreFunctionDerivatives() {
+    return this->legendrePolynomialMatrix;
 }
 
 double MagneticDeclination::getG(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
-    NOAA_COF_COEFFS coeff = MagneticDeclination::m_coeffMap[key];
+    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
 
     return coeff.g;
 }
@@ -318,7 +312,7 @@ double MagneticDeclination::getG(int n, int m) {
 double MagneticDeclination::getGDot(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
-    NOAA_COF_COEFFS coeff = MagneticDeclination::m_coeffMap[key];
+    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
 
     return coeff.gdot;
 }
@@ -326,7 +320,7 @@ double MagneticDeclination::getGDot(int n, int m) {
 double MagneticDeclination::getH(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
-    NOAA_COF_COEFFS coeff = MagneticDeclination::m_coeffMap[key];
+    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
 
     return coeff.h;
 }   
@@ -334,7 +328,7 @@ double MagneticDeclination::getH(int n, int m) {
 double MagneticDeclination::getHDot(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
-    NOAA_COF_COEFFS coeff = MagneticDeclination::m_coeffMap[key];
+    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
 
     return coeff.hdot;
 }
@@ -351,7 +345,7 @@ void MagneticDeclination::LoadCOF(const std::string& filePath)
     char model_name[64];
     char release_date[64];
 
-    fscanf(fp, "%lf %s %s", &MagneticDeclination::m_epoch, model_name, release_date);
+    fscanf(fp, "%lf %s %s", &this->m_epoch, model_name, release_date);
     // std::cout << "cof3" << std::endl;
 
     NOAA_COF_COEFFS coeffs;
