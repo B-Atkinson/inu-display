@@ -130,7 +130,7 @@ TEST(AssociatedLegendreDerivativesTest, pHatValuesMatchExpected) {
 
     double real = t.pHat(x, n, m);
 
-    EXPECT_NEAR(-8.04524134213, real, 0.0001);
+    EXPECT_NEAR(-0.27758719834, real, 0.0001);
 
     x = 0.832;
     n = 12;
@@ -140,7 +140,7 @@ TEST(AssociatedLegendreDerivativesTest, pHatValuesMatchExpected) {
 
     real = t.pHat(x, n, m);
 
-    EXPECT_NEAR(-3.43132206218, real, 0.0001);
+    EXPECT_NEAR(-0.327163721794, real, 0.0001);
 
     x = 0.532;
     n = 3;

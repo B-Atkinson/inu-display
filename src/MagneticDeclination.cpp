@@ -184,6 +184,14 @@ double MagneticDeclination::zPrimeDot(double lambda, double phiPrime, double r, 
     return -1.0 * outerTerm;
 }
 
+double factorial(double n) {
+    double result = 1;
+    for (unsigned int i = 2; i <= n; ++i) {
+        result *= i;
+    }
+    return result;
+}
+
 double MagneticDeclination::pHat(double u, int n, int m)
 {
     if(m == 0)
@@ -191,7 +199,7 @@ double MagneticDeclination::pHat(double u, int n, int m)
         return pLegen(u, n, m);
     }
 
-    double coeff = sqrt(2.0 * (1.0 / partialFactorial(n, (n + m))));
+    double coeff = sqrt(2.0 * ( factorial(n - m) / factorial(n + m) ));
     return coeff * pLegen(u, n, m);
 }
 
