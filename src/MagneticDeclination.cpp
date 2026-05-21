@@ -7,8 +7,8 @@
 const int MagneticDeclination::N = 12;
 const double MagneticDeclination::A = 6378137;
 const double MagneticDeclination::F = 1.0 / 298.257223563;
-const double MagneticDeclination::E = sqrt( F * ( 2 - F ) );
-
+const double MagneticDeclination::E = F * ( 2 - F );
+ 
 MagneticDeclination::MagneticDeclination()
 {
     this->m_epoch = 2025.0;
@@ -16,17 +16,26 @@ MagneticDeclination::MagneticDeclination()
 
 MagneticDeclination::~MagneticDeclination()
 {
-    // delete[] legendrePolynomialMatrix;
+    if (this->m_legendrePolynomialMatrix != nullptr) {
+        free(m_legendrePolynomialMatrix);
+    }
 }
 
-void MagneticDeclination::SetAssociatedPolynomialMatrix(double x) {
-    CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(N, N, x);
-}
-
-double MagneticDeclination::declination(double lambda, double phi, double h, double t)
+double MagneticDeclination::CalculateDeclination(double lambda, double phi, double h, double t)
 {
+    if (phi < -90.0 || phi > 90.0) {
+        throw std::invalid_argument("latitude must be in [-90, 90] degrees");
+    }
+
+    lambda = std::fmod(lambda + 180.0, 360.0);
+    if (lambda < 0.0) lambda += 360.0;
+    lambda -= 180.0;
+
+    lambda = lambda * 3.14159265359 / 180.0;
+    phi = phi * 3.14159265359 / 180.0;
+
     double sinPhi = sin(phi);
-    double rc = A / sqrt(1 - E * E * sinPhi * sinPhi);
+    double rc = A / sqrt(1 - E * sinPhi * sinPhi);
     double _p = p(rc, h, phi);
     double _z = z(rc, h, phi);
     double r = sqrt(_p * _p + _z * _z);
@@ -35,10 +44,13 @@ double MagneticDeclination::declination(double lambda, double phi, double h, dou
     SetAssociatedPolynomialMatrix(sin(phiPrime));
     
     double x = xPrime(lambda, phiPrime, r, t) * cos(phiPrime - phi) - zPrime(lambda, phiPrime, r, t) * sin(phiPrime - phi);
-
     double y = yPrime(lambda, phiPrime, r, t);
 
-    return atan2(y, x);
+    return atan2(y, x) * 180.0 / 3.14159265359;
+}
+
+void MagneticDeclination::SetAssociatedPolynomialMatrix(double x) {
+    CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(N, N + 1, x);
 }
 
 double MagneticDeclination::v(double lambda, double phiPrime, double r, double t)
@@ -60,17 +72,17 @@ double MagneticDeclination::v(double lambda, double phiPrime, double r, double t
     return geoRefRadiusMeters * outerTerm;
 }
 
-double MagneticDeclination::g(int n, int m, int t)
+double MagneticDeclination::g(int n, int m, double t)
 {
-    return getG(n, m) + (t - this->m_epoch) * getGDot(n, m);
+    return GetG(n, m) + (t - this->m_epoch) * GetGDot(n, m);
 }
 
-double MagneticDeclination::h(int n, int m, int t)
+double MagneticDeclination::h(int n, int m, double t)
 {
-    return getH(n, m) + (t - this->m_epoch) * getHDot(n, m);
+    return GetH(n, m) + (t - this->m_epoch) * GetHDot(n, m);
 }
 
-double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, int t)
+double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, double t)
 {
     double geoRefRadiusMeters = 6371200;
     double outerTerm = 0;
@@ -80,7 +92,7 @@ double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, int
         double innerTerm = 0;
         for(int m = 0; m <= n; m++)
         {
-            innerTerm += (g(n, m, t) * cos(m * lambda) + h(n, m, t) * sin(m * lambda)) * dPHatdPhiPrime(sin(phiPrime), n, m);
+            innerTerm += (g(n, m, t) * cos(m * lambda) + h(n, m, t) * sin(m * lambda)) * dPHatdPhiPrime(phiPrime, n, m);
         }
 
         outerTerm += pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
@@ -89,7 +101,7 @@ double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, int
     return -1.0 * outerTerm;
 }
 
-double MagneticDeclination::yPrime(double lambda, double phiPrime, double r, int t)
+double MagneticDeclination::yPrime(double lambda, double phiPrime, double r, double t)
 {
     double geoRefRadiusMeters = 6371200;
     double outerTerm = 0;
@@ -108,7 +120,7 @@ double MagneticDeclination::yPrime(double lambda, double phiPrime, double r, int
     return (1.0 / cos(phiPrime)) * outerTerm;
 }
 
-double MagneticDeclination::zPrime(double lambda, double phiPrime, double r, int t)
+double MagneticDeclination::zPrime(double lambda, double phiPrime, double r, double t)
 {
     double geoRefRadiusMeters = 6371200;
     double outerTerm = 0;
@@ -127,71 +139,6 @@ double MagneticDeclination::zPrime(double lambda, double phiPrime, double r, int
     return -1.0 * outerTerm;
 }
 
-double MagneticDeclination::xPrimeDot(double lambda, double phiPrime, double r, int t)
-{
-    double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
-
-    for(int n = 1; n <= N; n++)
-    {
-        double innerTerm = 0;
-        for(int m = 0; m <= n; m++)
-        {
-            innerTerm += (getGDot(n, m) * cos(m * lambda) + getHDot(n, m) * sin(m * lambda)) * dPHatdPhiPrime(sin(phiPrime), n, m);
-        }
-
-        outerTerm += pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
-    }
-
-    return -1.0 * outerTerm;
-}
-
-double MagneticDeclination::yPrimeDot(double lambda, double phiPrime, double r, int t)
-{
-    double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
-
-    for(int n = 1; n <= N; n++)
-    {
-        double innerTerm = 0;
-        for(int m = 0; m <= n; m++)
-        {
-            innerTerm += m * (getGDot(n, m) * sin(m * lambda) - getHDot(n, m) * cos(m * lambda)) * pHat(sin(phiPrime), n, m);
-        }
-
-        outerTerm += pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
-    }
-
-    return (1.0 / cos(phiPrime)) * outerTerm;
-}
-
-double MagneticDeclination::zPrimeDot(double lambda, double phiPrime, double r, int t)
-{
-    double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
-
-    for(int n = 1; n <= N; n++)
-    {
-        double innerTerm = 0;
-        for(int m = 0; m <= n; m++)
-        {
-            innerTerm += (getGDot(n, m) * cos(m * lambda) + getHDot(n, m) * sin(m * lambda)) * pHat(sin(phiPrime), n, m);
-        }
-
-        outerTerm += (n + 1) * pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
-    }
-
-    return -1.0 * outerTerm;
-}
-
-double factorial(double n) {
-    double result = 1;
-    for (unsigned int i = 2; i <= n; ++i) {
-        result *= i;
-    }
-    return result;
-}
-
 double MagneticDeclination::pHat(double u, int n, int m)
 {
     if(m == 0)
@@ -199,27 +146,28 @@ double MagneticDeclination::pHat(double u, int n, int m)
         return pLegen(u, n, m);
     }
 
-    double coeff = sqrt(2.0 * ( factorial(n - m) / factorial(n + m) ));
+    double coeff = sqrt(2.0 / MagneticDeclination::FallingFactorial(n + m, 2 * m));
     return coeff * pLegen(u, n, m);
 }
 
 double MagneticDeclination::pLegen(double u, double n, double m)
 {
-    return pow(-1, m) * associatedLegendrePolynomial(u, n, m);
+    return pow(-1, m) * AssociatedLegendrePolynomial(u, n, m);
 }
 
-double MagneticDeclination::associatedLegendrePolynomial(double u, int n, int m)
+double MagneticDeclination::AssociatedLegendrePolynomial(double u, int n, int m)
 {
     double coeff = 1 - u * u;
     double sign = (m & 0x1) == 0 ? 1.0 : -1.0;
 
-    return sign * pow(coeff, m / 2.0) * legendrePolynomialMatrix[(N + 1) * n + m];
+    return sign * pow(coeff, m / 2.0) * this->m_legendrePolynomialMatrix[(N + 1) * n + m];
 }
 
 double MagneticDeclination::dPHatdPhiPrime(double phiPrime, int n, int m)
 {
     double firstTerm = (n + 1) * tan(phiPrime) * pHat(sin(phiPrime), n, m);
     double secondTerm = sqrt((n + 1) * (n + 1) - m * m) * (1.0 / cos(phiPrime)) * pHat(sin(phiPrime), n + 1, m);
+
     return firstTerm - secondTerm;
 }
 
@@ -230,24 +178,7 @@ double MagneticDeclination::p(double r, double h, double phi)
 
 double MagneticDeclination::z(double r, double h, double phi)
 {
-    return (r * (1 - E * E) + h) * sin(phi);
-}
-
-double MagneticDeclination::radiusPrimeVerticle(double phi)
-{
-    double coeff = sin(phi);
-    return A / sqrt(1 - E * E * coeff * coeff);
-}
-
-unsigned long long MagneticDeclination::partialFactorial(unsigned int start, unsigned int end)
-{
-    unsigned long long n = 1;
-    for(int i = start; i <= end; i++)
-    {
-        n *= i;
-    }
-
-    return n;
+    return (r * (1 - E) + h) * sin(phi);
 }
 
 double MagneticDeclination::FallingFactorial(double n, int m) {
@@ -271,15 +202,15 @@ MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(
     const unsigned rows = L + 1;
     const unsigned cols = M + 1;
 
-    free(this->legendrePolynomialMatrix);
+    free(this->m_legendrePolynomialMatrix);
 
-    this->legendrePolynomialMatrix = static_cast<double*>(calloc(rows * cols, sizeof(double)));
+    this->m_legendrePolynomialMatrix = static_cast<double*>(calloc(rows * cols, sizeof(double)));
 
     auto index = [cols](unsigned l, unsigned m) {
         return cols * l + m;
     };
 
-    this->legendrePolynomialMatrix[index(0, 0)] = 1.0;
+    this->m_legendrePolynomialMatrix[index(0, 0)] = 1.0;
 
     for (unsigned l = 1; l <= L; l++) {
         double twoToTheL = std::ldexp(1.0, static_cast<int>(l)); 
@@ -291,7 +222,7 @@ MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(
                 unsigned kStart = (l + m + 1) / 2; 
 
                 for (unsigned k = kStart; k <= l; k++) {
-                    int twoKL = 2 * static_cast<int>(k) - static_cast<int>(l);
+                    double twoKL = 2 * static_cast<int>(k) - static_cast<int>(l);
                     int exponent = twoKL - static_cast<int>(m);
                     double sign = ((k + l) & 0x1) == 0 ? 1.0 : -1.0;
                     double factorialTerm = sign * Binomial(2 * k, l) * Binomial(l, k);
@@ -300,16 +231,16 @@ MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(
                 }
             }
 
-            this->legendrePolynomialMatrix[index(l, m)] = combinatorialSum / twoToTheL;
+            this->m_legendrePolynomialMatrix[index(l, m)] = combinatorialSum / twoToTheL;
         }
     }
 }
 
 double* MagneticDeclination::GetMthLthOrderAssociatedLegrandreFunctionDerivatives() {
-    return this->legendrePolynomialMatrix;
+    return this->m_legendrePolynomialMatrix;
 }
 
-double MagneticDeclination::getG(int n, int m) {
+double MagneticDeclination::GetG(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
     NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
@@ -317,7 +248,7 @@ double MagneticDeclination::getG(int n, int m) {
     return coeff.g;
 }
 
-double MagneticDeclination::getGDot(int n, int m) {
+double MagneticDeclination::GetGDot(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
     NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
@@ -325,7 +256,7 @@ double MagneticDeclination::getGDot(int n, int m) {
     return coeff.gdot;
 }
 
-double MagneticDeclination::getH(int n, int m) {
+double MagneticDeclination::GetH(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
     NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
@@ -333,7 +264,7 @@ double MagneticDeclination::getH(int n, int m) {
     return coeff.h;
 }   
 
-double MagneticDeclination::getHDot(int n, int m) {
+double MagneticDeclination::GetHDot(int n, int m) {
     std::pair<int, int> key = std::make_pair(n, m);
 
     NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
@@ -343,23 +274,18 @@ double MagneticDeclination::getHDot(int n, int m) {
 
 void MagneticDeclination::LoadCOF(const std::string& filePath)
 {
-    // std::cout << "cof1" << std::endl;
-
     FILE* fp = fopen(filePath.c_str(), "r");
     if (!fp)
         throw std::runtime_error("Failed to open COF file: " + filePath);
-    // std::cout << "cof2" << std::endl;
 
     char model_name[64];
     char release_date[64];
 
     fscanf(fp, "%lf %s %s", &this->m_epoch, model_name, release_date);
-    // std::cout << "cof3" << std::endl;
 
     NOAA_COF_COEFFS coeffs;
-    // std::cout << "cof4" << std::endl;
 
-    while (fscanf(fp, "%3d%3d%10.1f%10.1f%11.1f%11.1f",
+    while (fscanf(fp, "%3d%3d%10lf%10lf%11lf%11lf",
         &coeffs.n, &coeffs.m,
         &coeffs.g, &coeffs.h,
         &coeffs.gdot, &coeffs.hdot) == 6)
@@ -367,9 +293,8 @@ void MagneticDeclination::LoadCOF(const std::string& filePath)
         if (coeffs.n == 999)
             break;
 
-        m_coeffMap[{coeffs.n, coeffs.m}] = coeffs;
+        this->m_coeffMap[{coeffs.n, coeffs.m}] = coeffs;
     }
-    // std::cout << "cof5" << std::endl;
 
     fclose(fp);
 }

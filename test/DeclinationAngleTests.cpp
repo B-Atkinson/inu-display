@@ -72,11 +72,11 @@ TEST(AssociatedLegendreDerivativesTest, LegrandrePolynomialValuesMatchExpected) 
     int n = 6;
     int m = 5;
 
-    t.LoadCOF("C:/Users/maxid/Workspace/IMU_GPS_KF/build/Debug/WMM.COF");
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
 
     t.SetAssociatedPolynomialMatrix(x);
 
-    double real = t.associatedLegendrePolynomial(x, n, m);
+    double real = t.AssociatedLegendrePolynomial(x, n, m);
 
     EXPECT_NEAR(-1877.29520956, real, 0.0001);
 
@@ -86,7 +86,7 @@ TEST(AssociatedLegendreDerivativesTest, LegrandrePolynomialValuesMatchExpected) 
 
     t.SetAssociatedPolynomialMatrix(x);
 
-    real = t.associatedLegendrePolynomial(x, n, m);
+    real = t.AssociatedLegendrePolynomial(x, n, m);
 
     EXPECT_NEAR(39.4229083879, real, 0.0001);
 }
@@ -98,7 +98,7 @@ TEST(AssociatedLegendreDerivativesTest, pLegenValuesMatchExpected) {
     int n = 6;
     int m = 5;
 
-    t.LoadCOF("C:/Users/maxid/Workspace/IMU_GPS_KF/build/Debug/WMM.COF");
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
 
     t.SetAssociatedPolynomialMatrix(x);
 
@@ -112,7 +112,7 @@ TEST(AssociatedLegendreDerivativesTest, pLegenValuesMatchExpected) {
 
     t.SetAssociatedPolynomialMatrix(x);
 
-    real = t.associatedLegendrePolynomial(x, n, m);
+    real = t.AssociatedLegendrePolynomial(x, n, m);
 
     EXPECT_NEAR(pow(-1, m) * 39.4229083879, real, 0.0001);
 }
@@ -124,7 +124,7 @@ TEST(AssociatedLegendreDerivativesTest, pHatValuesMatchExpected) {
     int n = 8;
     int m = 5;
 
-    t.LoadCOF("C:/Users/maxid/Workspace/IMU_GPS_KF/build/Debug/WMM.COF");
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
 
     t.SetAssociatedPolynomialMatrix(x);
 
@@ -163,39 +163,204 @@ TEST(AssociatedLegendreDerivativesTest, pHatValuesMatchExpected) {
     EXPECT_NEAR(0.117206523949, real, 0.0001);
 }
 
-// TEST(AssociatedLegendreDerivativesTest, dPHatdPhiPrimeValuesMatchExpected) {
-//     MagneticDeclination t = MagneticDeclination();
+TEST(AssociatedLegendreDerivativesTest, dPHatdPhiPrimeValuesMatchExpected) {
+    MagneticDeclination t = MagneticDeclination();
 
-//     double x = 13.12;
-//     int n = 5;
-//     int m = 2;
+    double x = 13.12;
+    int n = 5;
+    int m = 2;
 
-//     t.LoadCOF("C:/Users/maxid/Workspace/IMU_GPS_KF/build/Debug/WMM.COF");
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
 
-//     t.SetAssociatedPolynomialMatrix(x);
+    t.SetAssociatedPolynomialMatrix(std::sin(x));
 
-//     double real = t.dPHatdPhiPrime(x, n, m);
+    double real = t.dPHatdPhiPrime(x, n, m);
 
-//     EXPECT_NEAR(5.85139124478, real, 0.0001);
+    EXPECT_NEAR(2.55169737127, real, 0.0001);
 
-//     x = -0.2532;
-//     n = 11;
-//     m = 1;
+    x = -0.2532;
+    n = 11;
+    m = 1;
 
-//     t.SetAssociatedPolynomialMatrix(x);
+    t.SetAssociatedPolynomialMatrix(std::sin(x));
 
-//     real = t.dPHatdPhiPrime(x, n, m);
+    real = t.dPHatdPhiPrime(x, n, m);
 
-//     EXPECT_NEAR(-0.959113360328, real, 0.0001);
+    EXPECT_NEAR(-0.959113360328, real, 0.0001);
 
-//     x = -12.8123;
-//     n = 2;
-//     m = 0;
+    x = -12.8123;
+    n = 2;
+    m = 0;
 
-//     t.SetAssociatedPolynomialMatrix(x);
+    t.SetAssociatedPolynomialMatrix(std::sin(x));
 
-//     real = t.dPHatdPhiPrime(x, n, m);
+    real = t.dPHatdPhiPrime(x, n, m);
 
-//     EXPECT_NEAR(-0.708397693788, real, 0.0001);
-// }
+    EXPECT_NEAR(-0.708397693788, real, 0.0001);
+}
+
+TEST(AssociatedLegendreDerivativesTest, gAndHValuesMatchExpected) {
+    MagneticDeclination t = MagneticDeclination();
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
+
+    int n = 7;
+    int m = 6;
+
+    double g = t.GetG(n, m);
+    double h = t.GetH(n, m);
+    double gDot = t.GetGDot(n, m);
+    double hDot = t.GetHDot(n, m);
+
+    EXPECT_NEAR(-11.1, g, 1e-8);
+    EXPECT_NEAR(-25.1, h, 1e-8);
+    EXPECT_NEAR(-0.8, gDot, 1e-8);
+    EXPECT_NEAR(0.6, hDot, 1e-8);
+
+    double G = t.g(n, m, 2026);
+    double H = t.h(n, m, 2026);
+
+    EXPECT_NEAR(-11.9, G, 1e-8);
+    EXPECT_NEAR(-24.5, H, 1e-8);
+
+    n = 11;
+    m = 10;
+
+    g = t.GetG(n, m);
+    h = t.GetH(n, m);
+    gDot = t.GetGDot(n, m);
+    hDot = t.GetHDot(n, m);
+
+    EXPECT_NEAR(-0.2, g, 1e-8);
+    EXPECT_NEAR(-1.8, h, 1e-8);
+    EXPECT_NEAR(-0.1, gDot, 1e-8);
+    EXPECT_NEAR(0.0, hDot, 1e-8);
+    
+    G = t.g(n, m, 2026);
+    H = t.h(n, m, 2026);
+
+    EXPECT_NEAR(-0.3, G, 1e-8);
+    EXPECT_NEAR(-1.8, H, 1e-8);
+} 
+
+TEST(AssociatedLegendreDerivativesTest, ValidateDeclinationAnagleValuesMatchExpected) {
+    MagneticDeclination t = MagneticDeclination();
+    t.LoadCOF(TEST_DATA_DIR "/WMM.COF");
+
+    double lat = 80.0;
+    double lon = 0.0;
+    double heightAboveEllipsoid = 0.0;
+    double year = 2025.0;
+
+    double declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(1.28, declination, 0.1);
+
+    lat = 0.0;
+    lon = 120.0;
+    heightAboveEllipsoid = 0.0;
+    year = 2025.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(-0.16, declination, 0.1);
+
+    lat = -80.0;
+    lon = 240.0;
+    heightAboveEllipsoid = 0.0;
+    year = 2025.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(68.78, declination, 0.1);
+
+    lat = 80.0;
+    lon = 0.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2025.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(0.85, declination, 0.1);
+
+    lat = 0.0;
+    lon = 120.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2025.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(-0.15, declination, 0.1);
+
+    lat = -80.0;
+    lon = 240.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2025.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(68.21, declination, 0.1);
+
+    lat = 80.0;
+    lon = 0.0;
+    heightAboveEllipsoid = 0.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(2.59, declination, 0.1);
+
+    lat = 0.0;
+    lon = 120.0;
+    heightAboveEllipsoid = 0.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(-0.24, declination, 0.1);
+
+    lat = -80.0;
+    lon = 240.0;
+    heightAboveEllipsoid = 0.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(68.49, declination, 0.1);
+
+    lat = 80.0;
+    lon = 0.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(2.16, declination, 0.1);
+
+    lat = 0.0;
+    lon = 120.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(-0.23, declination, 0.1);
+
+    lat = -80.0;
+    lon = 240.0;
+    heightAboveEllipsoid = 100000.0;
+    year = 2027.5;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(67.93, declination, 0.1);
+
+    lat = 64.1202;
+    lon = -144.902;
+    heightAboveEllipsoid = 0.0;
+    year = 2026.0;
+
+    declination = t.CalculateDeclination(lon, lat, heightAboveEllipsoid, year);
+
+    EXPECT_NEAR(15.89, declination, 0.3);
+}
 
