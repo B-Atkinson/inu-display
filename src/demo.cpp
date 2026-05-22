@@ -231,6 +231,71 @@ static void write_nmea_csv_header(std::ostream& csv) {
         << '\n';
 }
 
+static void enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
+    sh2_SensorConfig_t cfg{};
+    cfg.reportInterval_us = interval_us;
+    if (sh2_setSensorConfig(sensor_id, &cfg) != SH2_OK) {
+        std::cerr << "[WARN] Failed to enable sensor id=" << sensor_id << "\n";
+    }
+}
+
+static constexpr const char* kSnapshotCsvPath = "imu_snapshot.csv";
+
+static double epoch_seconds_ms() {
+    using namespace std::chrono;
+
+    const auto now = system_clock::now();
+    const auto ms_since_epoch =
+        duration_cast<milliseconds>(now.time_since_epoch());
+
+    // Example output when printed with precision 3:
+    // 1716400000.123
+    return static_cast<double>(ms_since_epoch.count()) / 1000.0;
+}
+
+static void write_snapshot_csv_header(std::ostream& csv) {
+    csv
+        << "epoch_s,"
+
+        << "accel_timestamp_us,"
+        << "accel_x,"
+        << "accel_y,"
+        << "accel_z,"
+        << "accel_accuracy,"
+
+        << "linear_accel_timestamp_us,"
+        << "linear_accel_x,"
+        << "linear_accel_y,"
+        << "linear_accel_z,"
+        << "linear_accel_accuracy,"
+
+        << "gyro_timestamp_us,"
+        << "gyro_x,"
+        << "gyro_y,"
+        << "gyro_z,"
+
+        << "mag_timestamp_us,"
+        << "mag_x,"
+        << "mag_y,"
+        << "mag_z,"
+        << "mag_accuracy,"
+
+        << "rot_timestamp_us,"
+        << "rot_i,"
+        << "rot_j,"
+        << "rot_k,"
+        << "rot_real,"
+        << "rot_accuracy,"
+
+        << "game_rot_timestamp_us,"
+        << "game_rot_i,"
+        << "game_rot_j,"
+        << "game_rot_k,"
+        << "game_rot_real"
+        << '\n';
+}
+
+
 static void nmea_recorder_thread(
     std::string port,
     int baud,
@@ -432,70 +497,6 @@ static void sensor_callback(void* /*cookie*/, sh2_SensorEvent_t* event) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-static void enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
-    sh2_SensorConfig_t cfg{};
-    cfg.reportInterval_us = interval_us;
-    if (sh2_setSensorConfig(sensor_id, &cfg) != SH2_OK) {
-        std::cerr << "[WARN] Failed to enable sensor id=" << sensor_id << "\n";
-    }
-}
-
-static constexpr const char* kSnapshotCsvPath = "imu_snapshot.csv";
-
-static double epoch_seconds_ms() {
-    using namespace std::chrono;
-
-    const auto now = system_clock::now();
-    const auto ms_since_epoch =
-        duration_cast<milliseconds>(now.time_since_epoch());
-
-    // Example output when printed with precision 3:
-    // 1716400000.123
-    return static_cast<double>(ms_since_epoch.count()) / 1000.0;
-}
-
-static void write_snapshot_csv_header(std::ostream& csv) {
-    csv
-        << "epoch_s,"
-
-        << "accel_timestamp_us,"
-        << "accel_x,"
-        << "accel_y,"
-        << "accel_z,"
-        << "accel_accuracy,"
-
-        << "linear_accel_timestamp_us,"
-        << "linear_accel_x,"
-        << "linear_accel_y,"
-        << "linear_accel_z,"
-        << "linear_accel_accuracy,"
-
-        << "gyro_timestamp_us,"
-        << "gyro_x,"
-        << "gyro_y,"
-        << "gyro_z,"
-
-        << "mag_timestamp_us,"
-        << "mag_x,"
-        << "mag_y,"
-        << "mag_z,"
-        << "mag_accuracy,"
-
-        << "rot_timestamp_us,"
-        << "rot_i,"
-        << "rot_j,"
-        << "rot_k,"
-        << "rot_real,"
-        << "rot_accuracy,"
-
-        << "game_rot_timestamp_us,"
-        << "game_rot_i,"
-        << "game_rot_j,"
-        << "game_rot_k,"
-        << "game_rot_real"
-        << '\n';
-}
 
 static void print_snapshot() {
     Snapshot snap_copy;
