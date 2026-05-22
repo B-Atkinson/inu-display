@@ -222,8 +222,6 @@ static void sensor_callback(void* /*cookie*/, sh2_SensorEvent_t* event) {
         return;
     }
 
-    // This is now the only IMU logging path.
-    // Every decoded BNO085 report gets one CSV row immediately.
     log_imu_measurement_csv(val);
 }
 
@@ -542,36 +540,15 @@ static void nmea_recorder_thread(
 // BNO085 helper
 // ---------------------------------------------------------------------------
 
-static bool enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
+static void enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
     sh2_SensorConfig_t cfg{};
     cfg.reportInterval_us = interval_us;
 
-    int last_rc = SH2_OK;
-
-    for (int attempt = 1; attempt <= 20; ++attempt) {
-        last_rc = sh2_setSensorConfig(sensor_id, &cfg);
-
-        if (last_rc == SH2_OK) {
-            std::cerr << "[INFO] Enabled sensor id="
-                      << static_cast<int>(sensor_id)
-                      << " interval_us=" << interval_us
-                      << "\n";
-            return true;
-        }
-
-        for (int i = 0; i < 5; ++i) {
-            sh2_service();
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
+    if (sh2_setSensorConfig(sensor_id, &cfg) != SH2_OK) {
+        std::cerr << "[WARN] Failed to enable sensor id="
+                  << static_cast<int>(sensor_id)
+                  << "\n";
     }
-
-    std::cerr << "[WARN] Failed to enable sensor id="
-              << static_cast<int>(sensor_id)
-              << " interval_us=" << interval_us
-              << " rc=" << last_rc
-              << "\n";
-
-    return false;
 }
 
 // RAII wrapper: puts stdin into raw non-blocking mode, restores on destruction.
@@ -611,15 +588,9 @@ void run_demo() {
 
     sh2_setSensorCallback(sensor_callback, nullptr);
 
-    // Let the BNO085/SH2 stack process startup traffic before enabling reports.
-    for (int i = 0; i < 20; ++i) {
-        sh2_service();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    // These intervals are in microseconds.
-    // 2,500 us  = 400 Hz request
-    // 10,000 us = 100 Hz request
+    // IMPORTANT:
+    // Keep this order. This matches the version that was working.
+    // Do NOT call sh2_service() before these enable calls.
     enable_sensor(SH2_ACCELEROMETER,             2'500);
     enable_sensor(SH2_LINEAR_ACCELERATION,       2'500);
     enable_sensor(SH2_GYROSCOPE_CALIBRATED,      2'500);
@@ -629,7 +600,6 @@ void run_demo() {
 
     std::thread service_thread([]() {
         while (g_running.load(std::memory_order_relaxed)) {
-            // This triggers sensor_callback(), which writes IMU CSV rows.
             sh2_service();
         }
     });
