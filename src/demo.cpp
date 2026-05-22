@@ -53,16 +53,6 @@ static bool csv_needs_header(const char* path) {
     return !in.good() || in.tellg() == std::streampos(0);
 }
 
-static double epoch_seconds_ms() {
-    using namespace std::chrono;
-
-    const auto now = system_clock::now();
-    const auto ms_since_epoch =
-        duration_cast<milliseconds>(now.time_since_epoch());
-
-    return static_cast<double>(ms_since_epoch.count()) / 1000.0;
-}
-
 static std::string csv_quote(const std::string& value) {
     std::string out;
     out.reserve(value.size() + 2);
@@ -452,11 +442,6 @@ static void enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
 }
 
 static constexpr const char* kSnapshotCsvPath = "imu_snapshot.csv";
-
-static bool csv_needs_header(const char* path) {
-    std::ifstream in(path, std::ios::binary | std::ios::ate);
-    return !in.good() || in.tellg() == std::streampos(0);
-}
 
 static double epoch_seconds_ms() {
     using namespace std::chrono;
