@@ -17,7 +17,7 @@
 
 #include "bno085_hal.hpp"  // brings in sh2.h and sh2_err.h under extern "C"
 
-static constexpr const char* kNmeaPort    = "/dev/serial0";          // Pi UART alias
+static constexpr const char* kNmeaPort    = "/dev/ttyACM0";          // Pi UART alias
 static constexpr int         kNmeaBaud    = 9600;                    // Common GPS NMEA default
 static constexpr const char* kNmeaCsvPath = "nmea_sentences.csv";
 
