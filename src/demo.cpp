@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
@@ -34,22 +35,8 @@ static constexpr int         kNmeaBaud = 9600;
 
 static std::atomic<bool> g_running{true};
 
-// Protects the IMU CSV file stream.
-// The callback should usually run on the SH2 service thread, but this makes
-// the logger safe if that ever changes.
+// Protects the IMU CSV stream.
 static std::mutex g_imu_csv_mtx;
-
-struct Snapshot {
-    std::mutex             mtx;
-    AccelerometerData      accel{};
-    LinearAccelData        linear_accel{};
-    GyroscopeData          gyro{};
-    MagnetometerData       mag{};
-    RotationVectorData     rot{};
-    GameRotationVectorData game_rot{};
-};
-
-static Snapshot        g_snapshot;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -159,6 +146,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
     switch (val.sensorId) {
         case SH2_ACCELEROMETER:
             write_imu_prefix(csv, val, "ACCELEROMETER");
+
             csv << val.un.accelerometer.x << ','
                 << val.un.accelerometer.y << ','
                 << val.un.accelerometer.z
@@ -168,6 +156,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
         case SH2_LINEAR_ACCELERATION:
             write_imu_prefix(csv, val, "LINEAR_ACCELERATION");
+
             csv << val.un.linearAcceleration.x << ','
                 << val.un.linearAcceleration.y << ','
                 << val.un.linearAcceleration.z
@@ -177,6 +166,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
         case SH2_GYROSCOPE_CALIBRATED:
             write_imu_prefix(csv, val, "GYROSCOPE_CALIBRATED");
+
             csv << val.un.gyroscope.x << ','
                 << val.un.gyroscope.y << ','
                 << val.un.gyroscope.z
@@ -186,6 +176,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
         case SH2_MAGNETIC_FIELD_CALIBRATED:
             write_imu_prefix(csv, val, "MAGNETIC_FIELD_CALIBRATED");
+
             csv << val.un.magneticField.x << ','
                 << val.un.magneticField.y << ','
                 << val.un.magneticField.z
@@ -195,6 +186,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
         case SH2_ROTATION_VECTOR:
             write_imu_prefix(csv, val, "ROTATION_VECTOR");
+
             csv << ",,,"
                 << val.un.rotationVector.i << ','
                 << val.un.rotationVector.j << ','
@@ -206,6 +198,7 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
         case SH2_GAME_ROTATION_VECTOR:
             write_imu_prefix(csv, val, "GAME_ROTATION_VECTOR");
+
             csv << ",,,"
                 << val.un.gameRotationVector.i << ','
                 << val.un.gameRotationVector.j << ','
@@ -224,78 +217,14 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
 
 static void sensor_callback(void* /*cookie*/, sh2_SensorEvent_t* event) {
     sh2_SensorValue_t val{};
+
     if (sh2_decodeSensorEvent(&val, event) != SH2_OK) {
         return;
     }
 
-    bool should_log = false;
-
-    {
-        std::lock_guard<std::mutex> lock(g_snapshot.mtx);
-
-        switch (val.sensorId) {
-            case SH2_ACCELEROMETER:
-                g_snapshot.accel.timestamp_us = val.timestamp;
-                g_snapshot.accel.x            = val.un.accelerometer.x;
-                g_snapshot.accel.y            = val.un.accelerometer.y;
-                g_snapshot.accel.z            = val.un.accelerometer.z;
-                g_snapshot.accel.accuracy     = static_cast<uint8_t>(val.status & 0x03);
-                should_log = true;
-                break;
-
-            case SH2_LINEAR_ACCELERATION:
-                g_snapshot.linear_accel.timestamp_us = val.timestamp;
-                g_snapshot.linear_accel.x            = val.un.linearAcceleration.x;
-                g_snapshot.linear_accel.y            = val.un.linearAcceleration.y;
-                g_snapshot.linear_accel.z            = val.un.linearAcceleration.z;
-                g_snapshot.linear_accel.accuracy     = static_cast<uint8_t>(val.status & 0x03);
-                should_log = true;
-                break;
-
-            case SH2_GYROSCOPE_CALIBRATED:
-                g_snapshot.gyro.timestamp_us = val.timestamp;
-                g_snapshot.gyro.x            = val.un.gyroscope.x;
-                g_snapshot.gyro.y            = val.un.gyroscope.y;
-                g_snapshot.gyro.z            = val.un.gyroscope.z;
-                should_log = true;
-                break;
-
-            case SH2_MAGNETIC_FIELD_CALIBRATED:
-                g_snapshot.mag.timestamp_us = val.timestamp;
-                g_snapshot.mag.x            = val.un.magneticField.x;
-                g_snapshot.mag.y            = val.un.magneticField.y;
-                g_snapshot.mag.z            = val.un.magneticField.z;
-                g_snapshot.mag.accuracy     = static_cast<uint8_t>(val.status & 0x03);
-                should_log = true;
-                break;
-
-            case SH2_ROTATION_VECTOR:
-                g_snapshot.rot.timestamp_us = val.timestamp;
-                g_snapshot.rot.i            = val.un.rotationVector.i;
-                g_snapshot.rot.j            = val.un.rotationVector.j;
-                g_snapshot.rot.k            = val.un.rotationVector.k;
-                g_snapshot.rot.real         = val.un.rotationVector.real;
-                g_snapshot.rot.accuracy     = val.un.rotationVector.accuracy;
-                should_log = true;
-                break;
-
-            case SH2_GAME_ROTATION_VECTOR:
-                g_snapshot.game_rot.timestamp_us = val.timestamp;
-                g_snapshot.game_rot.i            = val.un.gameRotationVector.i;
-                g_snapshot.game_rot.j            = val.un.gameRotationVector.j;
-                g_snapshot.game_rot.k            = val.un.gameRotationVector.k;
-                g_snapshot.game_rot.real         = val.un.gameRotationVector.real;
-                should_log = true;
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    if (should_log) {
-        log_imu_measurement_csv(val);
-    }
+    // This is now the only IMU logging path.
+    // Every decoded BNO085 report gets one CSV row immediately.
+    log_imu_measurement_csv(val);
 }
 
 // ---------------------------------------------------------------------------
@@ -480,7 +409,7 @@ static void log_nmea_sentence_csv(
         << csv_quote(sentence)
         << '\n';
 
-    // Immediate write-to-disk behavior.
+    // Immediate per-sentence write.
     csv.flush();
 }
 
@@ -580,7 +509,6 @@ static void nmea_recorder_thread(
                     continue;
                 }
 
-                // If there is noise before the NMEA start char, discard it.
                 const size_t start = sentence.find_first_of("$!");
                 if (start == std::string::npos) {
                     continue;
@@ -592,10 +520,9 @@ static void nmea_recorder_thread(
                     continue;
                 }
 
-                // This logs every complete NMEA sentence immediately.
+                // Every complete NMEA line gets one CSV row immediately.
                 log_nmea_sentence_csv(csv, port, baud, sentence);
             } else if (ch != '\0') {
-                // Prevent runaway growth if a cable/device sends junk without newlines.
                 if (line.size() < 1024) {
                     line.push_back(ch);
                 } else {
@@ -632,9 +559,6 @@ static bool enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
             return true;
         }
 
-        // Give the SH2/BNO085 stack time to process boot/status traffic.
-        // Do this before the service thread starts, so sh2_service() is not
-        // being called concurrently from two threads.
         for (int i = 0; i < 5; ++i) {
             sh2_service();
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -675,7 +599,7 @@ struct RawTerminal {
 // ---------------------------------------------------------------------------
 
 void run_demo() {
-    g_running = true;
+    g_running.store(true, std::memory_order_relaxed);
 
     RawTerminal term;
 
@@ -685,27 +609,30 @@ void run_demo() {
         return;
     }
 
-sh2_setSensorCallback(sensor_callback, nullptr);
+    sh2_setSensorCallback(sensor_callback, nullptr);
 
-// Let the sensor hub process initial boot/product/status traffic before
-// requesting reports. This avoids one-shot enable failures on startup.
-for (int i = 0; i < 20; ++i) {
-    sh2_service();
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-}
-
-enable_sensor(SH2_ACCELEROMETER,             2'500);
-enable_sensor(SH2_LINEAR_ACCELERATION,       2'500);
-enable_sensor(SH2_GYROSCOPE_CALIBRATED,      2'500);
-enable_sensor(SH2_MAGNETIC_FIELD_CALIBRATED, 10'000);
-enable_sensor(SH2_ROTATION_VECTOR,           2'500);
-enable_sensor(SH2_GAME_ROTATION_VECTOR,      2'500);
-
-std::thread service_thread([]() {
-    while (g_running.load(std::memory_order_relaxed)) {
+    // Let the BNO085/SH2 stack process startup traffic before enabling reports.
+    for (int i = 0; i < 20; ++i) {
         sh2_service();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-});
+
+    // These intervals are in microseconds.
+    // 2,500 us  = 400 Hz request
+    // 10,000 us = 100 Hz request
+    enable_sensor(SH2_ACCELEROMETER,             2'500);
+    enable_sensor(SH2_LINEAR_ACCELERATION,       2'500);
+    enable_sensor(SH2_GYROSCOPE_CALIBRATED,      2'500);
+    enable_sensor(SH2_MAGNETIC_FIELD_CALIBRATED, 10'000);
+    enable_sensor(SH2_ROTATION_VECTOR,           2'500);
+    enable_sensor(SH2_GAME_ROTATION_VECTOR,      2'500);
+
+    std::thread service_thread([]() {
+        while (g_running.load(std::memory_order_relaxed)) {
+            // This triggers sensor_callback(), which writes IMU CSV rows.
+            sh2_service();
+        }
+    });
 
     std::thread nmea_thread(
         nmea_recorder_thread,
@@ -722,7 +649,7 @@ std::thread service_thread([]() {
         char ch = 0;
 
         if (::read(STDIN_FILENO, &ch, 1) == 1 && ch == '\x1b') {
-            g_running = false;
+            g_running.store(false, std::memory_order_relaxed);
             break;
         }
 
