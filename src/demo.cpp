@@ -39,6 +39,18 @@ static std::atomic<bool> g_running{true};
 // the logger safe if that ever changes.
 static std::mutex g_imu_csv_mtx;
 
+struct Snapshot {
+    std::mutex             mtx;
+    AccelerometerData      accel{};
+    LinearAccelData        linear_accel{};
+    GyroscopeData          gyro{};
+    MagnetometerData       mag{};
+    RotationVectorData     rot{};
+    GameRotationVectorData game_rot{};
+};
+
+static Snapshot        g_snapshot;
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
