@@ -80,9 +80,6 @@ static std::string csv_quote(const std::string& value) {
 // IMU per-measurement logger
 // ---------------------------------------------------------------------------
 
-static constexpr const char* kImuCsvPath = "imu_measurements.csv";
-static std::mutex g_imu_csv_mtx;
-
 static void write_imu_csv_header(std::ostream& csv) {
     csv << "epoch_s,"
         << "sensor_timestamp_us,"
