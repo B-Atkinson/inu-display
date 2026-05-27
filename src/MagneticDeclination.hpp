@@ -52,6 +52,8 @@ public:
      *
      * @param filePath path to .COF file
      *
+     * @throws runtime_error Thrown if error in opening .COF file
+     *
      * @return
      */
     void LoadCOF(const std::string& filePath);
@@ -64,6 +66,8 @@ public:
      * @param phi geodetic latitude
      * @param h ellipsoidal height
      * @param t the current year (YYYY)
+     *
+     * @throws invalid_argument Thrown if latitude is outside of [-90, 90]
      *
      * @return Declination angle in degree
      */
@@ -315,7 +319,7 @@ private:
     static const double F;  // Flattening
     static const double E;  // Eccentricity
 
-    double *m_legendrePolynomialMatrix = static_cast<double*>(calloc(13 * 13, sizeof(double)));
+    double *m_legendrePolynomialMatrix = static_cast<double*>(calloc(13 * 13, sizeof(double))); // A matrix containing M derivatives of polynomial order N
     std::map<std::pair<int, int>, NOAA_COF_COEFFS> m_coeffMap;  // (n, m) -> (g, h, gDot, gDot)
     double m_epoch; // YYYY considered Epoch, defined in .COF file
 };

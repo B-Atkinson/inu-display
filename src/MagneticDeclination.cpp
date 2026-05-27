@@ -23,7 +23,8 @@ MagneticDeclination::~MagneticDeclination()
 
 double MagneticDeclination::CalculateDeclination(double lambda, double phi, double h, double t)
 {
-    if (phi < -90.0 || phi > 90.0) {
+    if (phi < -90.0 || phi > 90.0)
+    {
         throw std::invalid_argument("latitude must be in [-90, 90] degrees");
     }
 
@@ -35,7 +36,15 @@ double MagneticDeclination::CalculateDeclination(double lambda, double phi, doub
     phi = phi * 3.14159265359 / 180.0;
 
     double sinPhi = sin(phi);
+
+    /*
+     * From noaa_71569_DS1.pdf Eqn 8
+     */
     double rc = A / sqrt(1 - E * sinPhi * sinPhi);
+
+    /*
+     * From noaa_71569_DS1.pdf Eqn 7
+     */
     double _p = p(rc, h, phi);
     double _z = z(rc, h, phi);
     double r = sqrt(_p * _p + _z * _z);
@@ -43,9 +52,15 @@ double MagneticDeclination::CalculateDeclination(double lambda, double phi, doub
 
     SetAssociatedPolynomialMatrix(sin(phiPrime));
     
+    /*
+     * From noaa_71569_DS1.pdf Eqn 17
+     */
     double x = xPrime(lambda, phiPrime, r, t) * cos(phiPrime - phi) - zPrime(lambda, phiPrime, r, t) * sin(phiPrime - phi);
     double y = yPrime(lambda, phiPrime, r, t);
 
+    /*
+     * From noaa_71569_DS1.pdf Eqn 19
+     */
     return atan2(y, x) * 180.0 / 3.14159265359;
 }
 
