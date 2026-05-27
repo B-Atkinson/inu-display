@@ -7,7 +7,14 @@
 
 int main() {
     Calibration calibration;
-    calibration.Service();
+
+    while (true)
+    {
+        calibration.Service();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
     // MagneticDeclination ob = MagneticDeclination();
 
     // ob.LoadCOF("/home/idler/WMM.COF");
