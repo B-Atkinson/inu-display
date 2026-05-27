@@ -35,14 +35,10 @@ public:
      *        This overloaded method assumes no GPS measurement. This implies Beta GPS = 0.
      *        Potentially prone to IMU overfitting.
      * 
-     * @param [in] dt - delta time from previous IMU innovation
-     * @param [in] z_IMU - 4 state IMU measurement column vector, [vx, vy, ax, ay]^T
+     * @param dt - delta time from previous IMU innovation
+     * @param z_IMU - 4 state IMU measurement column vector, [vx, vy, ax, ay]^T
      * 
      * @return {x(k|k), P(k|k)} - pseudo-fused postiori x and P
-     * 
-     * @remarks
-     * 
-     * @exception
      */
     std::pair<Vector6d, Matrix6d> Step(double dt, Vector6d& z_IMU);
 

@@ -55,10 +55,6 @@ public:
      * @throws runtime_error Thrown if error in opening .COF file
      *
      * @return
-     * 
-     * @remarks
-     * 
-     * @exception
      */
     void LoadCOF(const std::string& filePath);
 
@@ -74,10 +70,6 @@ public:
      * @throws invalid_argument Thrown if latitude is outside of [-90, 90]
      *
      * @return Declination angle in degree
-     * 
-     * @remarks
-     * 
-     * @exception
      */
     double CalculateDeclination(double lambda, double phi, double h, double t);
 
