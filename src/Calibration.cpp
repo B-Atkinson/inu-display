@@ -119,21 +119,24 @@ void Calibration::ServiceCalibration()
             // Waiting for user to press ENTER
             if (PressedEnter())
             {
-                uint32_t interval_us = 10000; // calibrate for 100Hz operation
-                int status = sh2_startCal(interval_us);
-                if (status != SH2_OK)
-                {
-                    // End calibration process with error
-                    printf("Error from sh2_startCal: %d\n", status);
-                    m_sCalState = CAL_DONE;
-                }
-                else
-                {
-                    // Proceed to next step: final orientation
-                    printf("Rotate module to final orientation, press ENTER.\n");
-                    printf("> ");
-                    m_sCalState = CAL_WAIT_FINISH;
-                }
+                // uint32_t interval_us = 10000; // calibrate for 100Hz operation
+                // int status = sh2_startCal(interval_us);
+                // if (status != SH2_OK)
+                // {
+                //     // End calibration process with error
+                //     printf("Error from sh2_startCal: %d\n", status);
+                //     m_sCalState = CAL_DONE;
+                // }
+                // else
+                // {
+                //     // Proceed to next step: final orientation
+                //     printf("Rotate module to final orientation, press ENTER.\n");
+                //     printf("> ");
+                //     m_sCalState = CAL_WAIT_FINISH;
+                // }
+                uint8_t sensorsToCalibrate = SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG;
+
+                sh2_setCalConfig(sensorsToCalibrate);
             }
             break;
         case CAL_WAIT_FINISH:

@@ -43,6 +43,8 @@ static void sensor_callback(void* /*cookie*/, sh2_SensorEvent_t* event) {
 
     std::lock_guard<std::mutex> lock(g_snapshot.mtx);
 
+    printf("\n\nSTATUS:   %d\n\n", val.status);
+
     switch (val.sensorId) {
         case SH2_ACCELEROMETER:
             g_snapshot.accel.timestamp_us = val.timestamp;
@@ -175,6 +177,9 @@ struct RawTerminal {
 // ---------------------------------------------------------------------------
 
 void run_demo2() {
+    uint8_t sensorsToCalibrate = SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG;
+    sh2_setCalConfig(sensorsToCalibrate);
+
     RawTerminal term;
 
     sh2_Hal_t hal = bno085_hal_create();

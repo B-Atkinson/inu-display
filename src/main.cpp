@@ -1,19 +1,20 @@
 #include "MagneticDeclination.hpp"
 #include "Calibration.hpp"
 #include "demo.hpp"
+#include "demo2.hpp"
 #include <iostream>
 
 #include <chrono>
 
 int main() {
-    Calibration calibration;
+    // Calibration calibration;
 
-    while (true)
-    {
-        calibration.Service();
+    // while (true)
+    // {
+    //     calibration.Service();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // }
 
     // MagneticDeclination ob = MagneticDeclination();
 
@@ -22,7 +23,7 @@ int main() {
 
     // std::cout << "Expected: 1: 88.47 " << ", got: " << declination1 << std::endl; 
 
-    // run_demo();
+    run_demo2();
     return 0;
 }
 
