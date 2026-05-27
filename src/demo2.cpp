@@ -43,7 +43,7 @@ static void sensor_callback(void* /*cookie*/, sh2_SensorEvent_t* event) {
 
     std::lock_guard<std::mutex> lock(g_snapshot.mtx);
 
-    printf("\n\nSTATUS:   %d\n\n", val.status);
+    printf("SensorId: %d Status:   %d\n", val.sensorId, val.status);
 
     switch (val.sensorId) {
         case SH2_ACCELEROMETER:
