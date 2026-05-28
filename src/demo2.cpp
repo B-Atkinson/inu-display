@@ -177,7 +177,9 @@ struct RawTerminal {
 // ---------------------------------------------------------------------------
 
 void run_demo2() {
-    uint8_t sensorsToCalibrate = SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG;
+    sh2_clearDcdAndReset();
+    // uint8_t sensorsToCalibrate = SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG;
+    uint8_t sensorsToCalibrate = 0x0;
     sh2_setCalConfig(sensorsToCalibrate);
 
     RawTerminal term;
