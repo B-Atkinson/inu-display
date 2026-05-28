@@ -35,11 +35,8 @@ namespace IMUUtils
      */
     double DegreesToRadians(double degrees)
     {
-        while (degrees >= 360.0)
-        {
-            degrees -= 360.0;
-        }
-        while (degrees < 0.0)
+        degrees = std::fmod(degrees, 360.0);
+        if (degrees < 0.0)
         {
             degrees += 360.0;
         }
@@ -95,16 +92,16 @@ namespace IMUUtils
     /**
      * @brief Converts magnetic heading and declination angle values into a true north angle.
      *        True north angle is a degree value from 0 to 360.
-     * 
+     *
      * @param [in] magneticHeading Magnetic heading in geodidic WGS84 from [0, 360).
      * @param [in] declinationAngle NOAA calculated declination angle in geodedic WGS84 [-180, 180).
-     * 
+     *
      * @return True north heading in geodedic WGS84 from [0, 360).
-     * 
+     *
      * @remarks
-     * 
+     *
      * @throws std::runtime_error if inputs are out of bounds.
-     * 
+     *
      */
     double MagneticToTrueHeading(double magneticHeading, double declinationAngle) {
         if (magneticHeading < 0.0 || magneticHeading >= 360.0 || declinationAngle < -180.0 || declinationAngle >= 180.0) {

@@ -91,7 +91,7 @@ IMUGPSFusionKF_2D_ConstantAcceleration::CalculateBetas(Matrix6d priori_P, Vector
 
     Eigen::Vector4d Betas;
     Betas << std::max(1.0 - mu_GPS - mu_IMU + beta_GPS_IMU, 0.0), std::max(mu_GPS - beta_GPS_IMU, 0.0), std::max(mu_IMU - beta_GPS_IMU, 0.0), std::max(beta_GPS_IMU, 0.0);
-    std::cout << Betas(0) << " " << Betas(1) << " " << Betas(2) << " " << Betas(3)  << std::endl;
+    std::cout << Betas(0) << " " << Betas(1) << " " << Betas(2) << " " << Betas(3)  << '\n';
    
     return Betas;
 }
@@ -133,8 +133,7 @@ IMUGPSFusionKF_2D_ConstantAcceleration::CalculateFuzzyLogicMembershipFunction(do
 }
 
 std::pair<Matrix6d, Matrix6d> 
-IMUGPSFusionKF_2D_ConstantAcceleration::Calculate_GPS_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_GPS, Matrix6d postiori_P_GPS_IMU) {
-    Matrix6d R_GPS_inv = this->m_R_GPS.inverse();
+IMUGPSFusionKF_2D_ConstantAcceleration::Calculate_GPS_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_GPS, Matrix6d postiori_P_GPS_IMU, const Matrix6d& R_GPS_inv) {
     Matrix6d H_GPS_T = this->m_H_GPS.transpose();
     Matrix6d postiori_P_GPS_inv = priori_P_inv + H_GPS_T * R_GPS_inv * this->m_H_GPS;
 
@@ -146,8 +145,7 @@ IMUGPSFusionKF_2D_ConstantAcceleration::Calculate_GPS_KalmanGains(Matrix6d prior
 }
 
 std::pair<Matrix6d, Matrix6d> 
-IMUGPSFusionKF_2D_ConstantAcceleration::Calculate_IMU_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_IMU, Matrix6d postiori_P_GPS_IMU) {
-    Matrix6d R_IMU_inv = this->m_R_IMU.inverse();
+IMUGPSFusionKF_2D_ConstantAcceleration::Calculate_IMU_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_IMU, Matrix6d postiori_P_GPS_IMU, const Matrix6d& R_IMU_inv) {
     Matrix6d H_IMU_T = this->m_H_IMU.transpose();
     Matrix6d postiori_P_IMU_inv = priori_P_inv + H_IMU_T * R_IMU_inv * this->m_H_IMU;
 
@@ -182,8 +180,8 @@ IMUGPSFusionKF_2D_ConstantAcceleration::Step(double dt, Vector6d& z_IMU) {
     // Calculate IMU Kalman gains.
     Matrix6d priori_P_inv = priori_P.inverse();
 
-    Matrix6d R_GPS_inv = this->m_R_GPS.inverse();
-    Matrix6d R_IMU_inv = this->m_R_IMU.inverse();
+    const Matrix6d R_GPS_inv = this->m_R_GPS.inverse();
+    const Matrix6d R_IMU_inv = this->m_R_IMU.inverse();
 
     Matrix6d HT_Rinv_H = this->m_H_IMU.transpose() * R_IMU_inv * this->m_H_IMU;
 
@@ -193,7 +191,7 @@ IMUGPSFusionKF_2D_ConstantAcceleration::Step(double dt, Vector6d& z_IMU) {
         HT_Rinv_H
     ).inverse();
 
-    std::pair<Matrix6d, Matrix6d> IMU_KalmanGains = this->Calculate_IMU_KalmanGains(priori_P_inv, innovation_IMU, postiori_P_GPS_IMU);
+    std::pair<Matrix6d, Matrix6d> IMU_KalmanGains = this->Calculate_IMU_KalmanGains(priori_P_inv, innovation_IMU, postiori_P_GPS_IMU, R_IMU_inv);
 
     // Calculate postiori x and P IMU.
     Vector6d postiori_x_IMU = priori_x + IMU_KalmanGains.first * innovation_IMU;
@@ -240,16 +238,16 @@ IMUGPSFusionKF_2D_ConstantAcceleration::Step(double dt, Vector6d& z_GPS, Vector6
     // Calculate GPS and IMU Kalman gains.
     Matrix6d priori_P_inv = priori_P.inverse();
 
-    Matrix6d R_GPS_inv = this->m_R_GPS.inverse();
-    Matrix6d R_IMU_inv = this->m_R_IMU.inverse();
+    const Matrix6d R_GPS_inv = this->m_R_GPS.inverse();
+    const Matrix6d R_IMU_inv = this->m_R_IMU.inverse();
 
     Matrix6d HT_Rinv_H_GPS = this->m_H_GPS.transpose() * R_GPS_inv * this->m_H_GPS;
     Matrix6d HT_Rinv_H_IMU = this->m_H_IMU.transpose() * R_IMU_inv * this->m_H_IMU;
 
     Matrix6d postiori_P_GPS_IMU = (priori_P_inv + HT_Rinv_H_GPS + HT_Rinv_H_IMU).inverse();
 
-    std::pair<Matrix6d, Matrix6d> IMU_KalmanGains = this->Calculate_IMU_KalmanGains(priori_P_inv, innovation_IMU, postiori_P_GPS_IMU);
-    std::pair<Matrix6d, Matrix6d> GPS_KalmanGains = this->Calculate_GPS_KalmanGains(priori_P_inv, innovation_GPS, postiori_P_GPS_IMU);
+    std::pair<Matrix6d, Matrix6d> IMU_KalmanGains = this->Calculate_IMU_KalmanGains(priori_P_inv, innovation_IMU, postiori_P_GPS_IMU, R_IMU_inv);
+    std::pair<Matrix6d, Matrix6d> GPS_KalmanGains = this->Calculate_GPS_KalmanGains(priori_P_inv, innovation_GPS, postiori_P_GPS_IMU, R_GPS_inv);
 
     // Calculate postiori x and P GPS and IMU.
     Vector6d postiori_x_IMU = priori_x + IMU_KalmanGains.first * innovation_IMU;

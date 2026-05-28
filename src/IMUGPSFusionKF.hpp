@@ -109,6 +109,7 @@ public:
      * @param [in] priori_P_inv - P(k|k-1)^-1
      * @param [in] innovation_GPS - z_GPS(k) - H_GPS * x(k|k-1)
      * @param [in] postiori_P_GPS_IMU - P(k|k-1)^-1 + H_GPS^T * R_GPS^-1 * H_GPS + H_IMU^T * R_IMU^-1 * H_IMU
+     * @param [in] R_GPS_inv - cached R_GPS(k)^-1
      * 
      * @return K_GPS(k), K_{GPS|(GPS+IMU)}
      * 
@@ -116,7 +117,7 @@ public:
      * 
      * @exception
      */
-    std::pair<Matrix6d, Matrix6d> Calculate_GPS_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_GPS, Matrix6d postiori_P_GPS_IMU);
+    std::pair<Matrix6d, Matrix6d> Calculate_GPS_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_GPS, Matrix6d postiori_P_GPS_IMU, const Matrix6d& R_GPS_inv);
 
     /**
      * @brief Calculate IMU Kalman Gains.
@@ -124,6 +125,7 @@ public:
      * @param [in] priori_P_inv - P(k|k-1)^-1
      * @param [in] innovation_IMU - z_IMU(k) - H_IMU * x(k|k-1)
      * @param [in] postiori_P_GPS_IMU - P(k|k-1)^-1 + H_GPS^T * R_GPS^-1 * H_GPS + H_IMU^T * R_IMU^-1 * H_IMU
+     * @param [in] R_IMU_inv - cached R_IMU(k)^-1
      * 
      * @return K_IMU(k), K_{IMU|(GPS+IMU)}
      * 
@@ -131,7 +133,7 @@ public:
      * 
      * @exception
      */
-    std::pair<Matrix6d, Matrix6d> Calculate_IMU_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_IMU, Matrix6d postiori_P_GPS_IMU);
+    std::pair<Matrix6d, Matrix6d> Calculate_IMU_KalmanGains(Matrix6d priori_P_inv, Vector6d innovation_IMU, Matrix6d postiori_P_GPS_IMU, const Matrix6d& R_IMU_inv);
 
     /**
      * @brief Update R_GPS(k) through analytical methods.

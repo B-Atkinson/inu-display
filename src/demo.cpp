@@ -444,7 +444,9 @@ static void log_imu_measurement_csv(const sh2_SensorValue_t& val) {
         return;
     }
 
-    std::ostringstream row;
+    thread_local std::ostringstream row;
+    row.str("");
+    row.clear();
 
     switch (val.sensorId) {
         case SH2_ACCELEROMETER:

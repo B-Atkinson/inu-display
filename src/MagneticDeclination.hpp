@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <map>
+#include <array>
 #include <string>
 
 /**
@@ -218,6 +218,25 @@ public:
     double* GetMthLthOrderAssociatedLegrandreFunctionDerivatives();
 
     /**
+     * @brief Computes the geocentric magnetic field components X', Y', and Z' in one pass.
+     *
+     * @param [in] lambda geodetic longitude in radians
+     * @param [in] phiPrime geocentric latitude in radians
+     * @param [in] r geocentric radius in meters
+     * @param [in] t the current year (YYYY)
+     * @param [out] xOut field X' North component in geocentric coordinates
+     * @param [out] yOut field Y' East component in geocentric coordinates
+     * @param [out] zOut field Z' Down component in geocentric coordinates
+     *
+     * @return
+     *
+     * @remarks Reuses shared trigonometric, coefficient, and radius calculations across components.
+     *
+     * @exception
+     */
+    void ComputeFieldComponents(double lambda, double phiPrime, double r, double t, double& xOut, double& yOut, double& zOut);
+
+    /**
      * @brief Field X' North Component in geocentric coordinate of the geomagnetic field
      *        From noaa_71569_DS1.pdf Eqn 10
      * 
@@ -403,8 +422,12 @@ private:
     static const double F;  // Flattening
     static const double E;  // Eccentricity
 
-    double *m_legendrePolynomialMatrix = static_cast<double*>(calloc(13 * 13, sizeof(double))); // A matrix containing M derivatives of polynomial order N
-    std::map<std::pair<int, int>, NOAA_COF_COEFFS> m_coeffMap;  // (n, m) -> (g, h, gDot, gDot)
+    static constexpr int kCoeffDimension = 13;
+    static constexpr int kLegendreRows = 14;
+    static constexpr int kLegendreCols = 13;
+
+    std::array<double, kLegendreRows * kLegendreCols> m_legendrePolynomialMatrix{}; // A matrix containing M derivatives of polynomial order N
+    std::array<std::array<NOAA_COF_COEFFS, kCoeffDimension>, kCoeffDimension> m_coeffs{};  // (n, m) -> (g, h, gDot, hDot)
     double m_epoch; // YYYY considered Epoch, defined in .COF file
 };
 

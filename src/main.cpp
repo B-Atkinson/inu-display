@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -59,21 +58,29 @@ static double deg_to_rad(double deg) {
     return deg * kPi / 180.0;
 }
 
-static std::vector<std::string> split_semicolon(const std::string& line) {
-    std::vector<std::string> fields;
-    std::string field;
-    std::stringstream ss(line);
+static void split_semicolon(const std::string& line, std::vector<std::string>& fields) {
+    fields.clear();
 
-    while (std::getline(ss, field, ';')) {
-        if (!field.empty() && field.back() == '\r') {
-            field.pop_back();
+    size_t field_start = 0;
+    while (field_start <= line.size()) {
+        const size_t field_end = line.find(';', field_start);
+        const size_t field_size = (field_end == std::string::npos ? line.size() : field_end) - field_start;
+        size_t trimmed_size = field_size;
+
+        if (trimmed_size > 0 && line[field_start + trimmed_size - 1] == '\r') {
+            --trimmed_size;
         }
-        if (!field.empty()) {
-            fields.push_back(field);
+
+        if (trimmed_size > 0) {
+            fields.emplace_back(line, field_start, trimmed_size);
         }
+
+        if (field_end == std::string::npos) {
+            break;
+        }
+
+        field_start = field_end + 1;
     }
-
-    return fields;
 }
 
 static long long day_ms(int hour, int minute, int second, int millisecond) {
@@ -183,12 +190,14 @@ static std::vector<ImuSample> load_imu(const std::string& path) {
 
     std::vector<ImuSample> samples;
     std::string line;
+    std::vector<std::string> fields;
+    fields.reserve(48);
     long long day_offset = 0;
     long long last_raw = -1;
     const long long one_day = 86400000LL;
 
     while (std::getline(file, line)) {
-        const auto fields = split_semicolon(line);
+        split_semicolon(line, fields);
         if (fields.empty()) {
             continue;
         }
@@ -225,12 +234,14 @@ static std::vector<GpsSample> load_gps(const std::string& path) {
 
     std::vector<GpsSample> samples;
     std::string line;
+    std::vector<std::string> fields;
+    fields.reserve(6);
     long long day_offset = 0;
     long long last_raw = -1;
     const long long one_day = 86400000LL;
 
     while (std::getline(file, line)) {
-        const auto fields = split_semicolon(line);
+        split_semicolon(line, fields);
         if (fields.empty()) {
             continue;
         }
@@ -294,14 +305,12 @@ static bool magnetic_global_accel_ne(const ImuSample& imu, double& north_mps2, d
     return true;
 }
 
-static double meters_per_lat_degree() {
-    return kEarthRadiusMeters * kPi / 180.0;
-}
+static constexpr double kMetersPerLatDegree = kEarthRadiusMeters * kPi / 180.0;
 
 static double meters_per_lon_degree(double lat_deg) {
     const double c = std::cos(lat_deg * kPi / 180.0);
     const double safe_c = std::abs(c) < 1e-9 ? (c < 0.0 ? -1e-9 : 1e-9) : c;
-    return meters_per_lat_degree() * safe_c;
+    return kMetersPerLatDegree * safe_c;
 }
 
 static constexpr const char* kFilterCsvPath = "kf_state.csv";
@@ -402,10 +411,9 @@ static void log_filter_state_csv(
     }
 
     csv << '\n';
-    csv.flush();
 }
 
-static void run_filter(double acc_lat, double acc_lon, double vel_lat, double vel_lon, const GpsSample* gps, double dt, IMUGPSFusionKF_2D_ConstantAcceleration kf) {
+static void run_filter(double acc_lat, double acc_lon, double vel_lat, double vel_lon, const GpsSample* gps, double dt, IMUGPSFusionKF_2D_ConstantAcceleration& kf) {
     std::pair<Vector6d, Matrix6d> x_P_pair;
 
     Vector6d gps_;
@@ -502,7 +510,7 @@ int main(int argc, char** argv) {
             vel_n_mps += acc_n_mps2 * dt;
             vel_e_mps += acc_e_mps2 * dt;
 
-            const double m_per_lat = meters_per_lat_degree();
+            const double m_per_lat = kMetersPerLatDegree;
             const double m_per_lon = meters_per_lon_degree(current_lat);
             const double acc_lat_deg_s2 = acc_n_mps2 / m_per_lat;
             const double acc_lon_deg_s2 = acc_e_mps2 / m_per_lon;
@@ -515,7 +523,7 @@ int main(int argc, char** argv) {
             acc_n_mps2 = std::numeric_limits<double>::quiet_NaN();
             acc_e_mps2 = std::numeric_limits<double>::quiet_NaN();
 
-            std::cout << "BAD!" << std::endl;
+            std::cout << "BAD!\n";
         }
     }
 }

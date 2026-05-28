@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <Eigen/Dense>
 #include <iostream>
@@ -14,12 +15,7 @@ MagneticDeclination::MagneticDeclination()
     this->m_epoch = 2025.0;
 }
 
-MagneticDeclination::~MagneticDeclination()
-{
-    if (this->m_legendrePolynomialMatrix != nullptr) {
-        free(m_legendrePolynomialMatrix);
-    }
-}
+MagneticDeclination::~MagneticDeclination() = default;
 
 double MagneticDeclination::CalculateDeclination(double lambda, double phi, double h, double t)
 {
@@ -55,8 +51,12 @@ double MagneticDeclination::CalculateDeclination(double lambda, double phi, doub
     /*
      * From noaa_71569_DS1.pdf Eqn 17
      */
-    double x = xPrime(lambda, phiPrime, r, t) * cos(phiPrime - phi) - zPrime(lambda, phiPrime, r, t) * sin(phiPrime - phi);
-    double y = yPrime(lambda, phiPrime, r, t);
+    double xPrimeValue = 0.0;
+    double y = 0.0;
+    double zPrimeValue = 0.0;
+    ComputeFieldComponents(lambda, phiPrime, r, t, xPrimeValue, y, zPrimeValue);
+
+    double x = xPrimeValue * cos(phiPrime - phi) - zPrimeValue * sin(phiPrime - phi);
 
     /*
      * From noaa_71569_DS1.pdf Eqn 19
@@ -97,61 +97,79 @@ double MagneticDeclination::h(int n, int m, double t)
     return GetH(n, m) + (t - this->m_epoch) * GetHDot(n, m);
 }
 
-double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, double t)
+void MagneticDeclination::ComputeFieldComponents(double lambda, double phiPrime, double r, double t, double& xOut, double& yOut, double& zOut)
 {
     double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
+    const double radiusRatio = geoRefRadiusMeters / r;
+    const double sinPhiPrime = sin(phiPrime);
+    const double cosPhiPrime = cos(phiPrime);
+    const double timeDelta = t - this->m_epoch;
+
+    double xOuterTerm = 0.0;
+    double yOuterTerm = 0.0;
+    double zOuterTerm = 0.0;
+    double radiusPower = radiusRatio * radiusRatio;
 
     for(int n = 1; n <= N; n++)
     {
-        double innerTerm = 0;
+        radiusPower *= radiusRatio;
+
+        double xInnerTerm = 0.0;
+        double yInnerTerm = 0.0;
+        double zInnerTerm = 0.0;
         for(int m = 0; m <= n; m++)
         {
-            innerTerm += (g(n, m, t) * cos(m * lambda) + h(n, m, t) * sin(m * lambda)) * dPHatdPhiPrime(phiPrime, n, m);
+            const double cosMLambda = cos(m * lambda);
+            const double sinMLambda = sin(m * lambda);
+            const NOAA_COF_COEFFS& coeff = this->m_coeffs[n][m];
+            const double gCoeff = coeff.g + timeDelta * coeff.gdot;
+            const double hCoeff = coeff.h + timeDelta * coeff.hdot;
+            const double pHatValue = pHat(sinPhiPrime, n, m);
+            const double weightedCoeff = gCoeff * cosMLambda + hCoeff * sinMLambda;
+
+            const double dPHatValue = (n + 1) * tan(phiPrime) * pHatValue -
+                sqrt((n + 1) * (n + 1) - m * m) * (1.0 / cosPhiPrime) * pHat(sinPhiPrime, n + 1, m);
+
+            xInnerTerm += weightedCoeff * dPHatValue;
+            yInnerTerm += m * (gCoeff * sinMLambda - hCoeff * cosMLambda) * pHatValue;
+            zInnerTerm += weightedCoeff * pHatValue;
         }
 
-        outerTerm += pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
+        xOuterTerm += radiusPower * xInnerTerm;
+        yOuterTerm += radiusPower * yInnerTerm;
+        zOuterTerm += (n + 1) * radiusPower * zInnerTerm;
     }
 
-    return -1.0 * outerTerm;
+    xOut = -1.0 * xOuterTerm;
+    yOut = (1.0 / cosPhiPrime) * yOuterTerm;
+    zOut = -1.0 * zOuterTerm;
+}
+
+double MagneticDeclination::xPrime(double lambda, double phiPrime, double r, double t)
+{
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    ComputeFieldComponents(lambda, phiPrime, r, t, x, y, z);
+    return x;
 }
 
 double MagneticDeclination::yPrime(double lambda, double phiPrime, double r, double t)
 {
-    double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
-
-    for(int n = 1; n <= N; n++)
-    {
-        double innerTerm = 0;
-        for(int m = 0; m <= n; m++)
-        {
-            innerTerm += m * (g(n, m, t) * sin(m * lambda) - h(n, m, t) * cos(m * lambda)) * pHat(sin(phiPrime), n, m);
-        }
-
-        outerTerm += pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
-    }
-
-    return (1.0 / cos(phiPrime)) * outerTerm;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    ComputeFieldComponents(lambda, phiPrime, r, t, x, y, z);
+    return y;
 }
 
 double MagneticDeclination::zPrime(double lambda, double phiPrime, double r, double t)
 {
-    double geoRefRadiusMeters = 6371200;
-    double outerTerm = 0;
-
-    for(int n = 1; n <= N; n++)
-    {
-        double innerTerm = 0;
-        for(int m = 0; m <= n; m++)
-        {
-            innerTerm += (g(n, m, t) * cos(m * lambda) + h(n, m, t) * sin(m * lambda)) * pHat(sin(phiPrime), n, m);
-        }
-
-        outerTerm += (n + 1) * pow(geoRefRadiusMeters / r, n + 2) * innerTerm;
-    }
-
-    return -1.0 * outerTerm;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    ComputeFieldComponents(lambda, phiPrime, r, t, x, y, z);
+    return z;
 }
 
 double MagneticDeclination::pHat(double u, int n, int m)
@@ -217,9 +235,7 @@ MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(
     const unsigned rows = L + 1;
     const unsigned cols = M + 1;
 
-    free(this->m_legendrePolynomialMatrix);
-
-    this->m_legendrePolynomialMatrix = static_cast<double*>(calloc(rows * cols, sizeof(double)));
+    std::fill_n(this->m_legendrePolynomialMatrix.begin(), rows * cols, 0.0);
 
     auto index = [cols](unsigned l, unsigned m) {
         return cols * l + m;
@@ -252,37 +268,29 @@ MagneticDeclination::CalculateMthLthOrderAssociatedLegrandreFunctionDerivatives(
 }
 
 double* MagneticDeclination::GetMthLthOrderAssociatedLegrandreFunctionDerivatives() {
-    return this->m_legendrePolynomialMatrix;
+    return this->m_legendrePolynomialMatrix.data();
 }
 
 double MagneticDeclination::GetG(int n, int m) {
-    std::pair<int, int> key = std::make_pair(n, m);
-
-    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
+    const NOAA_COF_COEFFS& coeff = this->m_coeffs[n][m];
 
     return coeff.g;
 }
 
 double MagneticDeclination::GetGDot(int n, int m) {
-    std::pair<int, int> key = std::make_pair(n, m);
-
-    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
+    const NOAA_COF_COEFFS& coeff = this->m_coeffs[n][m];
 
     return coeff.gdot;
 }
 
 double MagneticDeclination::GetH(int n, int m) {
-    std::pair<int, int> key = std::make_pair(n, m);
-
-    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
+    const NOAA_COF_COEFFS& coeff = this->m_coeffs[n][m];
 
     return coeff.h;
 }   
 
 double MagneticDeclination::GetHDot(int n, int m) {
-    std::pair<int, int> key = std::make_pair(n, m);
-
-    NOAA_COF_COEFFS coeff = this->m_coeffMap[key];
+    const NOAA_COF_COEFFS& coeff = this->m_coeffs[n][m];
 
     return coeff.hdot;
 }
@@ -308,7 +316,7 @@ void MagneticDeclination::LoadCOF(const std::string& filePath)
         if (coeffs.n == 999)
             break;
 
-        this->m_coeffMap[{coeffs.n, coeffs.m}] = coeffs;
+        this->m_coeffs[coeffs.n][coeffs.m] = coeffs;
     }
 
     fclose(fp);
