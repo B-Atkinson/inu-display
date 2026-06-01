@@ -222,6 +222,38 @@ namespace IMUUtils
         return Caclulate_Kinetic_Update(previous, accelerationEastWest, accelerationNorthSouth,
                                         std::chrono::steady_clock::now());
     }
+  
+   /**
+    * @brief Converts magnetic heading and declination angle values into a true north angle.
+    *        True north angle is a degree value from 0 to 360.
+    * 
+    * @param [in] magneticHeading Magnetic heading in geodidic WGS84 from [0, 360).
+    * @param [in] declinationAngle NOAA calculated declination angle in geodedic WGS84 [-180, 180).
+    * 
+    * @return True north heading in geodedic WGS84 from [0, 360).
+    * 
+    * @remarks
+    * 
+    * @throws std::runtime_error if inputs are out of bounds.
+    * 
+    */
+    double MagneticToTrueHeading(double magneticHeading, double declinationAngle) {
+        if (magneticHeading < 0.0 || magneticHeading >= 360.0 || declinationAngle < -180.0 || declinationAngle >= 180.0) {
+            throw std::runtime_error("Magnetic heading or declination angle is invalid. Magnetic heading bounds are [0.0, 360.0) and declination angle bounds are [-180.0, 180.0). Got, magneticHeading: " + std::to_string(magneticHeading) + " and declinationAngle: " + std::to_string(declinationAngle));
+        }
+
+        double trueNorthHeading = magneticHeading + declinationAngle;
+
+        while (trueNorthHeading < 0.0) {
+            trueNorthHeading += 360.0;
+        }
+
+        while (trueNorthHeading >= 360.0) {
+            trueNorthHeading -= 360.0;
+        }
+
+        return trueNorthHeading;
+    }
 } // namespace IMUUtils
 
 #endif // IMU_UTILS_HPP

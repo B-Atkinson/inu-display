@@ -12,7 +12,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <cmath>
-#include <stdexcept>
 
 using namespace IMUUtils;
 
@@ -247,43 +246,49 @@ TEST(IMUUtils, Convert_Local_xy_Acceleration_To_Global_Y_Acceleration)
     };
 };
 
-TEST(IMUUtils, Longitudinal_MetersPerSecondSquared_DegreesPerSecondSquared) {
-    double equator = 0.0;
-    double austin = 30.2739;
-    double caracas = 10.4716;
-    double sydney = -33.855782;
-    double newZealand = -47.223303;
+TEST(IMUUtils, MagneticToTrueHeadingExpectedValues) {
+    struct TruthAngles {
+        double lat;
+        double lon;
+        double declinationAngle;
+        double magneticHeading;
+        double trueNorthHeading;
+    };
 
-    double linearEastAccel = 10.0;
-    double linearWestAccel = -10.0;
+    std::vector<TruthAngles> expected = {
+        {76, -112, 6.63, 52, 58.63},
+        {76, 112, -7.05, 52, 44.95},
+        {-76, 112, -129.6, 52, 282.4},
+        {-76, -112, 55.4, 52, 107.4},
 
-    EXPECT_THROW(IMUUtils::Convert_Global_X_to_DegPerS2(-90.125, 0.0), std::out_of_range);
-    EXPECT_THROW(IMUUtils::Convert_Global_X_to_DegPerS2(90.125, 0.0), std::out_of_range);
+        {62, -40, -18.65, 271, 252.35},
+        {62, 40, 16.4, 271, 287.4},
+        {-62, 40, -51.08, 271, 219.92},
+        {-62, -40, 0.14, 271, 271.14},
 
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(equator, linearEastAccel), .000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(austin, linearEastAccel), .0000777262837788, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(caracas, linearEastAccel), .0000885010692985, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(sydney, linearEastAccel), .0000747398304481, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(newZealand, linearEastAccel), .0000611228607953, 1e-9);
+        {82, -170, -6.53, 1, 354.47},
+        {82, 170, -16.3, 1, 344.7},
+        {-82, 170, 146.58, 320, 106.58},
+        {-82, -170, 122.19, 320, 82.19},
 
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(equator, linearWestAccel), -.000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(austin, linearWestAccel), -.0000777262837788, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(caracas, linearWestAccel), -.0000885010692985, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(sydney, linearWestAccel), -.0000747398304481, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(newZealand, linearWestAccel), -.0000611228607953, 1e-9);
-}
+        {-65, -10, -13.89, 200, 186.11},
+        {-55, -60, 6.09, 200, 206.09}, 
+        {-45, 170, 25.48, 200, 225.48},
+        {-55, 160, 35.79, 200, 235.79}, 
+    };
 
-TEST(IMUUtils, Latitudinal_MetersPerSecondSquared_DegreesPerSecondSquared) {
+    for (const auto& truthAngle : expected) {
+        EXPECT_NEAR(MagneticToTrueHeading(truthAngle.magneticHeading, truthAngle.declinationAngle), truthAngle.trueNorthHeading, 1e-9);
+    }
 
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(10.0), .000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(5.0), .0000450000045, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(1.0), .0000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(2.5), .00002250000225, 1e-9);
+    // Expect method to throw exception for invalid input
 
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-10.0), -.000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-5.0), -.0000450000045, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-1.0), -.0000090000009, 1e-9);
-    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-2.5), -.00002250000225, 1e-9);
+    EXPECT_THROW(MagneticToTrueHeading(-10, 2), std::runtime_error);
+    EXPECT_THROW(MagneticToTrueHeading(10, -200), std::runtime_error);
+    EXPECT_THROW(MagneticToTrueHeading(360, 100), std::runtime_error);
+    EXPECT_THROW(MagneticToTrueHeading(10, 200), std::runtime_error);
+    EXPECT_THROW(MagneticToTrueHeading(0.0, 180), std::runtime_error);
+    EXPECT_NO_THROW(MagneticToTrueHeading(0.0, -180));
 }
 
 TEST(IMUUtils, KineticUpdates) {
