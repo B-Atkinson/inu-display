@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <cmath>
+#include <stdexcept>
 
 using namespace IMUUtils;
 
@@ -245,3 +246,63 @@ TEST(IMUUtils, Convert_Local_xy_Acceleration_To_Global_Y_Acceleration)
         EXPECT_NEAR(InertialToGlobal_Y(c.theta_input, c.x_accel_input, c.y_accel_input), c.y_accel_output, 1e-9);
     };
 };
+
+TEST(IMUUtils, Longitudinal_MetersPerSecondSquared_DegreesPerSecondSquared) {
+    double equator = 0.0;
+    double austin = 30.2739;
+    double caracas = 10.4716;
+    double sydney = -33.855782;
+    double newZealand = -47.223303;
+
+    double linearEastAccel = 10.0;
+    double linearWestAccel = -10.0;
+
+    EXPECT_THROW(IMUUtils::Convert_Global_X_to_DegPerS2(-90.125, 0.0), std::out_of_range);
+    EXPECT_THROW(IMUUtils::Convert_Global_X_to_DegPerS2(90.125, 0.0), std::out_of_range);
+
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(equator, linearEastAccel), .000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(austin, linearEastAccel), .0000777262837788, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(caracas, linearEastAccel), .0000885010692985, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(sydney, linearEastAccel), .0000747398304481, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(newZealand, linearEastAccel), .0000611228607953, 1e-9);
+
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(equator, linearWestAccel), -.000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(austin, linearWestAccel), -.0000777262837788, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(caracas, linearWestAccel), -.0000885010692985, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(sydney, linearWestAccel), -.0000747398304481, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_X_to_DegPerS2(newZealand, linearWestAccel), -.0000611228607953, 1e-9);
+}
+
+TEST(IMUUtils, Latitudinal_MetersPerSecondSquared_DegreesPerSecondSquared) {
+
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(10.0), .000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(5.0), .0000450000045, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(1.0), .0000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(2.5), .00002250000225, 1e-9);
+
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-10.0), -.000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-5.0), -.0000450000045, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-1.0), -.0000090000009, 1e-9);
+    EXPECT_NEAR(IMUUtils::Convert_Global_Y_to_DegPerS2(-2.5), -.00002250000225, 1e-9);
+}
+
+TEST(IMUUtils, KineticUpdates) {
+    const auto initialTimePoint = std::chrono::steady_clock::time_point{};
+    const auto initialState = IMUUtils::KineticState(initialTimePoint, 0.0, 0.0, 0.0, 0.0);
+
+    const auto secondTimePoint = initialTimePoint + std::chrono::milliseconds(1);
+    IMUUtils::KineticState secondState = IMUUtils::Caclulate_Kinetic_Update(initialState, 1.0, 1.0, secondTimePoint);
+    EXPECT_EQ(secondState.timestamp, secondTimePoint);
+    EXPECT_NEAR(secondState.accelerationEastWest, 1.0, 1e-12);
+    EXPECT_NEAR(secondState.accelerationNorthSouth, 1.0, 1e-12);
+    EXPECT_NEAR(secondState.speedEastWest, .001, 1e-12);
+    EXPECT_NEAR(secondState.speedNorthSouth, .001, 1e-12);
+
+    const auto thirdTimePoint = secondTimePoint + std::chrono::milliseconds(1);
+    IMUUtils::KineticState thirdState = IMUUtils::Caclulate_Kinetic_Update(secondState, 2.0, -1.0, thirdTimePoint);
+    EXPECT_EQ(thirdState.timestamp, thirdTimePoint);
+    EXPECT_NEAR(thirdState.accelerationEastWest, 2.0, 1e-12);
+    EXPECT_NEAR(thirdState.accelerationNorthSouth, -1.0, 1e-12);
+    EXPECT_NEAR(thirdState.speedEastWest, .003, 1e-12);
+    EXPECT_NEAR(thirdState.speedNorthSouth, 0.0, 1e-12);
+}
