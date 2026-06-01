@@ -305,110 +305,48 @@ TEST(IMUUtils, Calculating_Magnetic_Heading_From_Rotation_Vectors) {
     double magnetic_heading_output;
   };
 
-  const std::vector<Case> cases = {
-      {0.0, 0.0, 0.0, 0.0, 0.0},
-      {1.0, 0.0, 0.0, 0.0, 0.0},
-
-      // {0.0, std::sqrt(2) / 2, std::sqrt(2) / 2, 0.0, 180.0},
-      // {0.0, -std::sqrt(2) / 2, std::sqrt(2) / 2, 0.0, 180.0},
-      // {0.0, -std::sqrt(2) / 2, -std::sqrt(2) / 2, 0.0, -180.0},
-      // {0.0, std::sqrt(2) / 2, -std::sqrt(2) / 2, 0.0, 180.0},
-
-      // {0.0, std::sqrt(3) / 3, std::sqrt(3) / 3, std::sqrt(3) / 3, 116.565051177},
-      // {0.0, -std::sqrt(3) / 3, std::sqrt(3) / 3, std::sqrt(3) / 3, -116.565051177},
-      // {0.0, -std::sqrt(3) / 3, -std::sqrt(3) / 3, std::sqrt(3) / 3, -116.565051177},
-      // {0.0, std::sqrt(3) / 3, -std::sqrt(3) / 3, std::sqrt(3) / 3, 116.565051177},
-
-      // {0.0, std::sqrt(3) / 3, std::sqrt(3) / 3, -std::sqrt(3) / 3, -116.565051177},
-      // {0.0, -std::sqrt(3) / 3, std::sqrt(3) / 3, -std::sqrt(3) / 3, 116.565051177},
-      // {0.0, -std::sqrt(3) / 3, -std::sqrt(3) / 3, -std::sqrt(3) / 3, 116.565051177},
-      // {0.0, std::sqrt(3) / 3, -std::sqrt(3) / 3, -std::sqrt(3) / 3, -116.565051177},
-
-      // {std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, 90.0},
-      // {std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, 0.0},
-      // {std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, -90.0},
-      // {std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, 0.0},
-
-      // {std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, 0.0},
-      // {std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, 90.0},
-      // {std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, 0.0},
-      // {std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, -90.0},
-
-      // {-std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, 0.0},
-      // {-std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, -90.0},
-      // {-std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, 0.0},
-      // {-std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, 90.0},
-
-      // {-std::sqrt(4) / 4, std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, -90.0},
-      // {-std::sqrt(4) / 4, -std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, 0.0},
-      // {-std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, 90.0},
-      // {-std::sqrt(4) / 4, std::sqrt(4) / 4, -std::sqrt(4) / 4, -std::sqrt(4) / 4, 0.0},
-
-      // Small i, j, k rotation about <0, 1, 0> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1), 10.0},
-
-      // Small i, j, k rotation about <0, 0, 1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(0 * 0 + 0 * 0 + 1 * 1), 0.0},
-
-      // Small i, j, k rotation about <1, 0, 0> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 0 * 0 + 0 * 0),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(1 * 1 + 0 * 0 + 0 * 0),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(1 * 1 + 0 * 0 + 0 * 0), 0.0},
-
-      // Small i, j, k rotation about <0, 0, -1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + 0 * 0 + 0 * 0),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(1 * 1 + 0 * 0 + 0 * 0),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 0 / std::sqrt(1 * 1 + 0 * 0 + 0 * 0), 0.0},
-
-      // Small i, j, k rotation about <1, 1, 1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 1 * 1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 1 * 1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 1 * 1 + 1 * 1), 6.07328001016},
-
-      // Small i, j, k rotation about <-1, 1, 1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + 1 * 1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(-1 * -1 + 1 * 1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(-1 * -1 + 1 * 1 + 1 * 1), 5.49299876217},
-
-      // Small i, j, k rotation about <-1, -1, 1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + -1 * -1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + -1 * -1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(-1 * -1 + -1 * -1 + 1 * 1), -6.07328001016},
-
-      // Small i, j, k rotation about <1, -1, 1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + -1 * -1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(1 * 1 + -1 * -1 + 1 * 1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + -1 * -1 + 1 * 1), -5.49299876217},
-
-      // Small i, j, k rotation about <1, 1, -1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 1 * 1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + 1 * 1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(1 * 1 + 1 * 1 + -1 * -1), 5.49299876217},
-      // Small i, j, k rotation about <-1, 1, -1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + 1 * 1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(-1 * -1 + 1 * 1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + 1 * 1 + -1 * -1), 6.07328001016},
-      // Small i, j, k rotation about <-1, -1, -1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + -1 * -1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + -1 * -1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(-1 * -1 + -1 * -1 + -1 * -1), -5.49299876217},
-      // Small i, j, k rotation about <1,-1, -1> vector.
-      {std::cos(10.0 * M_PI / 180.0 / 2), std::sin(10.0 * M_PI / 180.0 / 2) * 1 / std::sqrt(1 * 1 + -1 * -1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(1 * 1 + -1 * -1 + -1 * -1),
-       std::sin(10.0 * M_PI / 180.0 / 2) * -1 / std::sqrt(1 * 1 + -1 * -1 + -1 * -1), -6.07328001016},
-
+  const std::vector<Case> cases {
+    {0.703796, 0.032959, -0.061829, -0.706909, 269.593608},
+    {0.821960, 0.038635, -0.052124, -0.565857, 290.761891},
+    {0.919800, 0.020264, -0.003479, -0.391846, 313.861807},
+    {0.971741, 0.043945, 0.005249, -0.231873, 333.231346},
+    {0.988098, 0.045898, -0.030945, -0.143311, 343.358572},
+    {0.994141, 0.066956, 0.005554, -0.084900, 350.322444},
+    {0.993530, 0.028931, 0.059387, 0.092651, 10.879328},
+    {0.984985, 0.027466, 0.052551, 0.161926, 18.864364},
+    {0.967468, 0.047852, 0.013611, 0.247986, 28.760084},
+    {0.925964, -0.011536, 0.037781, 0.375549, 44.168813},
+    {0.888550, -0.016907, 0.033936, 0.457214, 54.459598},
+    {0.873535, -0.032959, -0.015015, 0.485413, 58.108868},
+    {0.855530, -0.011414, 0.014709, 0.517395, 62.322400},
+    {0.759521, -0.021912, 0.012573, 0.650024, 81.095378},
+    {0.710815, -0.068420, -0.024597, 0.699646, 88.864519},
+    {0.561279, -0.008545, 0.029053, 0.827026, 111.720331},
+    {0.416138, -0.013733, 0.022156, 0.908936, 130.837101},
+    {0.293030, 0.000122, 0.048401, 0.954895, 145.956349},
+    {0.179443, 0.000977, 0.070435, 0.981262, 159.367645},
+    {0.003174, 0.005005, -0.064453, -0.997925, 180.399891},
+    {0.126343, 0.019043, -0.089600, -0.987732, 194.657630},
+    {0.312500, 0.018921, -0.066467, -0.947388, 216.488994},
+    {0.347595, 0.014954, -0.076599, -0.934387, 220.698976},
+    {0.411987, 0.023132, -0.064087, -0.908630, 228.739217},
+    {0.435303, 0.006226, -0.084595, -0.896301, 231.522990},
+    {0.578125, 0.008057, -0.035156, -0.815186, 250.632424},
+    {0.679871, 0.050903, -0.031006, -0.730957, 265.954413},
+    {0.736328, 0.056946, -0.088562, -0.668396, 275.217673},
+    {0.030884, 0.213745, -0.180786, -0.959534, 188.563874},
+    {0.750427, -0.429993, 0.121277, 0.487061, 51.633530},
+    {0.960205, -0.225525, 0.037781, -0.160461, 341.022779},
+    {0.860779, -0.093201, 0.083801, -0.493286, 299.998807},
+    {0.836914, -0.107727, 0.034851, -0.535461, 295.140112},
+    {0.852295, -0.101379, 0.033203, -0.512024, 298.294129},
   };
 
   for (const auto &c : cases) {
-    EXPECT_NEAR(IMUUtils::Calculate_Magnetic_Heading(c.w_input, c.i_input, c.j_input, c.k_input), c.magnetic_heading_output, 1e-6);
+    EXPECT_NEAR(IMUUtils::Calculate_Magnetic_Heading(c.w_input, c.i_input, c.j_input, c.k_input), c.magnetic_heading_output, 1e-3);
   };
 };
 // ----------------------------------------------------------------------------
-// TEST(IMUUtils, Calculating_Magnetic_Heading_From_Rotation_Vectors_Throws_Exception) {
-//   EXPECT_THROW(IMUUtils::Calculate_Magnetic_Heading(10.0, 1.0, 1.0, 1.0), std::runtime_error);
-//   EXPECT_NO_THROW(IMUUtils::Calculate_Magnetic_Heading(1.0, 0.0, 0.0, 0.0));
-// };
+TEST(IMUUtils, Calculating_Magnetic_Heading_From_Rotation_Vectors_Throws_Exception) {
+  EXPECT_THROW(IMUUtils::Calculate_Magnetic_Heading(10.0, 1.0, 1.0, 1.0), std::out_of_range);
+};

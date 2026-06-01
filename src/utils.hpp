@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <cmath>
 #include <stdexcept>
 
@@ -163,11 +164,24 @@ double Convert_Global_Y_to_DegPerS2(double boat_latitude, double boat_longitude,
  *
  */
 double Calculate_Magnetic_Heading(double w, double i, double j, double k) {
+  double heading = std::atan2(2 * ((w * k) + (i * j)), 1 - 2 * ((j * j) + (k * k)));
 
-  double magnetic_heading = std::atan2(2 * ((w * j) + (i * k)), 1 - 2 * ((j * j) + (k * k)));
+    if(w < 0.0 || w > 1.0) {
+      throw std::out_of_range("Invalid scalar. Must been between 0 and 1.");
+    }
+  
+   heading = heading * 180.0 / M_PI;
 
-  return magnetic_heading * 180 / M_PI;
-};
+    while(heading > 360) {
+      heading -= 360;
+    };
+
+    while(heading < 0) {
+      heading += 360;
+    };
+
+    return heading;
+  };
 }; // namespace IMUUtils
 
 #endif // IMU_UTILS_HPP
