@@ -24,9 +24,17 @@ TEST(IMUUtils, Convert_Degrees_To_Radians) {
   };
 
   const std::vector<Case> cases = {// These tests are pass correct
-                                   {-45.0, M_PI * 7 / 4}, {0.0, M_PI * 0}, {45.0, M_PI / 4},      {90.0, M_PI / 2},
-                                   {135.0, M_PI * 3 / 4}, {180.0, M_PI},   {225.0, M_PI * 5 / 4}, {270.0, M_PI * 3 / 2},
-                                   {315.0, M_PI * 7 / 4}, {360.0, 0.0},    {405.0, M_PI / 4}
+                                    {-45.0, M_PI * 7 / 4},
+                                    {0.0, M_PI * 0},
+                                    {45.0, M_PI / 4},
+                                    {90.0, M_PI / 2},
+                                    {135.0, M_PI * 3 / 4},
+                                    {180.0, M_PI},
+                                    {225.0, M_PI * 5 / 4},
+                                    {270.0, M_PI * 3 / 2},
+                                    {315.0, M_PI * 7 / 4},
+                                    {360.0, 0.0},
+                                    {405.0, M_PI / 4}
   };
 
   for (const auto &c : cases) {

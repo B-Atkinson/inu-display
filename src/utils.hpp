@@ -69,8 +69,9 @@ namespace IMUUtils
     };
 
 /**
- * Converts Degrees to Radians from IMU readings.
+ * @brief Converts Degrees to Radians from IMU readings.
  *
+ * @remarks
  * Expected behavior:
  *  - Ensures the heading is normalized to [0.0 -> 360.0] degrees
  *  - Returns heading in radians
@@ -79,14 +80,13 @@ namespace IMUUtils
  *  -Input is a valid heading in degrees (not NaN)
  *
  *  @param  degrees Heading angle in degrees
+ * 
  *  @return         Normalized heading in radians from [0.0 -> 2 * pi]
  */
 double DegreesToRadians(double degrees) {
-  while (degrees >= 360.0) {
-    degrees -= 360.0;
-  }
-  while (degrees < 0.0) {
-    degrees += 360.0;
+  if(degrees < 0 || degrees >= 360) {
+    degrees = fmod(degrees, 360);
+    degrees = (degrees < 0)? degrees + 360 : degrees;
   }
 
   return degrees * M_PI / 180.0;
