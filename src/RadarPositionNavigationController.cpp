@@ -1,19 +1,105 @@
-#include "RadarPositionNavigationController.hpp"
-#include "bno085_hal.hpp"  // brings in sh2.h and sh2_err.h under extern "C"
+#include <boost/math/distributions/chi_squared.hpp>
+#include <stdexcept>
+#include <thread>
+#include <cmath>
 
-extern "C" {
-#include "sh2_SensorValue.h"
-}
+#include "RadarPositionNavigationController.hpp"
+
+#define GPS_CHI_SQ_LOWER_BOUND 0.20
+#define GPS_CHI_SQ_UPPER_BOUND 0.95
+#define IMU_CHI_SQ_LOWER_BOUND 0.20
+#define IMU_CHI_SQ_UPPER_BOUND 0.95
+#define GPS_N 20
+#define GPS_L 5
+#define IMU_N 100
+#define IMU_L 10
+#define Q_N 100
+#define Q_L 10
 
 static void enable_sensor(sh2_SensorId_t sensor_id, uint32_t interval_us) {
     sh2_SensorConfig_t cfg{};
     cfg.reportInterval_us = interval_us;
+
     if (sh2_setSensorConfig(sensor_id, &cfg) != SH2_OK) {
+        // TODO: Log this
         std::cerr << "[WARN] Failed to enable sensor id=" << sensor_id << "\n";
     }
 }
 
 RadarPositionNavigationController::RadarPositionNavigationController() {
+    this->m_sh2ServiceIsRunning = false;
+    this->m_isKFConfigured = false;
+
+    this->m_latestX = Vector6d::Zero();
+    this->m_latestP = Matrix6d::Zero();
+}
+
+RadarPositionNavigationController::~RadarPositionNavigationController() {
+    this->TotalDestruction();
+}
+
+std::function<void(const GpsUpdate&)> RadarPositionNavigationController::GetGPSCallback() {
+    return [this](const GpsUpdate& gpsUpdate) {
+        this->_GPSCallback(gpsUpdate);
+    };
+}
+
+void RadarPositionNavigationController::StartAndConfigureRadarPNT(double lat0, double lon0) {
+    if (!this->m_isKFConfigured) {
+        this->ConfigureKalmanFilter(lat0, lon0, GPS_CHI_SQ_LOWER_BOUND, GPS_CHI_SQ_UPPER_BOUND, IMU_CHI_SQ_LOWER_BOUND, IMU_CHI_SQ_UPPER_BOUND);
+
+        this->m_isKFConfigured = true;
+    }
+
+    IMUManager::InstallEkf(
+        [this](double dt, Vector6d& imuVec) {this->KFCallbackImuOnly(dt, imuVec);},
+        [this](double dt, Vector6d& imuVec, Vector6d& gpsVec) {this->KFCallbackWithGps(dt, imuVec, gpsVec);}
+    );
+
+    StartIMUReader();
+}
+
+void RadarPositionNavigationController::StopRadarPNT() {
+    this->m_sh2ServiceIsRunning.store(false);
+
+    if (this->m_serviceThread.joinable()) {
+        this->m_serviceThread.join();
+    }
+
+    if (this->m_sh2IsOpen.exchange(false)) {
+        sh2_close();
+    }
+}
+
+void RadarPositionNavigationController::StartIMUReader() {
+    if (this->m_sh2ServiceIsRunning) {
+        return;
+    }
+
+    this->m_hal = bno085_hal_create();
+
+    if (sh2_open(&this->m_hal, nullptr, nullptr) != SH2_OK) {
+        std::cerr << "[ERROR] sh2_open failed\n";
+        return;
+    }
+
+    this->m_sh2IsOpen.store(true);
+
+    sh2_setSensorCallback(IMUManager::SensorCallback, nullptr);
+
+    enable_sensor(SH2_LINEAR_ACCELERATION, 2500);
+    enable_sensor(SH2_ROTATION_VECTOR, 2500);
+
+    this->m_sh2ServiceIsRunning.store(true);
+
+    this->m_serviceThread = std::thread([this]() {
+        while (this->m_sh2ServiceIsRunning.load()) {
+            sh2_service();
+        }
+    });
+}
+
+void RadarPositionNavigationController::ConfigureKalmanFilter(double lat0, double lon0, double gpsLowerPercentile, double gpsUpperPercentile, double imuLowerPercentile, double imuUpperPercentile) {
     Vector6d x0;
     x0 << lon0, lat0, 1e-15, 1e-15, 1e-16, 1e-16;
 
@@ -43,20 +129,36 @@ RadarPositionNavigationController::RadarPositionNavigationController() {
     Q0(4, 4) = 1e-14;
     Q0(5, 5) = 1e-14;
 
-    double chiSquaredBetaLowerBound_GPS = 0.05; // Chi SQ 5% for df=2
-    double chiSquaredBetaUpperBound_GPS = 5.99; // Chi SQ 95% for df=2
+    this->m_latestX = x0;
+    this->m_latestP = P0;
 
-    double chiSquaredBetaLowerBound_IMU = 0.71; // Chi SQ 5% for df=2
-    double chiSquaredBetaUpperBound_IMU = 9.49; // Chi SQ 95% for df=4
+    auto checkPercentileBounds = [](double percentile) {
+        return percentile <= 0.0 || percentile >= 1.0;
+    };
 
-    unsigned N_GPS = 10;
-    unsigned L_GPS = 2;
+    // Calculate Chi SQ stats for df 2 and 4 at percentiles
+    if (
+        checkPercentileBounds(gpsLowerPercentile) || 
+        checkPercentileBounds(gpsUpperPercentile) ||
+        checkPercentileBounds(imuLowerPercentile) ||
+        checkPercentileBounds(imuUpperPercentile) 
+    ) {
+        throw std::runtime_error("One or more Fuzzy fusion Chi SQ percentiles are <= 0 and/or >= 1");
+    }
 
-    unsigned N_IMU = 100;
-    unsigned L_IMU = 10;
+    if (gpsLowerPercentile >= gpsUpperPercentile) {
+        throw std::runtime_error("GPS Chi SQ lower percentile is >= upper percentile");
+    }
 
-    unsigned N_Q = 100;
-    unsigned L_Q = 10;
+    if (imuLowerPercentile >= imuUpperPercentile) {
+        throw std::runtime_error("IMU Chi SQ lower percentile is >= upper percentile");
+    }
+
+    double chiSquaredBetaLowerBound_GPS = boost::math::quantile(boost::math::chi_squared(2), gpsLowerPercentile); 
+    double chiSquaredBetaUpperBound_GPS = boost::math::quantile(boost::math::chi_squared(2), gpsUpperPercentile); 
+
+    double chiSquaredBetaLowerBound_IMU = boost::math::quantile(boost::math::chi_squared(4), imuLowerPercentile); 
+    double chiSquaredBetaUpperBound_IMU = boost::math::quantile(boost::math::chi_squared(4), imuUpperPercentile); 
 
     this->m_kf = IMUGPSFusionKF_2D_ConstantAcceleration(
         x0,
@@ -68,40 +170,89 @@ RadarPositionNavigationController::RadarPositionNavigationController() {
         chiSquaredBetaLowerBound_IMU,
         chiSquaredBetaUpperBound_GPS,
         chiSquaredBetaUpperBound_IMU,
-        N_GPS,
-        L_GPS,
-        N_IMU,
-        L_IMU,
-        N_Q,
-        L_Q
+        GPS_N,
+        GPS_L,
+        IMU_N,
+        IMU_L,
+        Q_N,
+        Q_L
     );
-
-
-
-    StartIMUReader();
 }
 
-RadarPositionNavigationController::~RadarPositionNavigationController() {
+void RadarPositionNavigationController::KFCallbackImuOnly(double dt, Vector6d& imuVec) {
+    std::lock_guard<std::mutex> kfStepGuard(this->m_sKFUpdateMutex);
 
-}
-
-void RadarPositionNavigationController::StartIMUReader() {
-    sh2_Hal_t hal = bno085_hal_create();
-    if (sh2_open(&hal, nullptr, nullptr) != SH2_OK) {
-        std::cerr << "[ERROR] sh2_open failed — check wiring and I2C address\n";
+    if (!this->m_isKFConfigured.load()) {
         return;
     }
 
-    sh2_setSensorCallback(IMUManager::SensorCallback, nullptr);
+    try {
+        std::pair<Vector6d, Matrix6d> output = this->m_kf.Step(dt, imuVec);
 
-    enable_sensor(SH2_LINEAR_ACCELERATION, 2'500);
-    enable_sensor(SH2_ROTATION_VECTOR, 2'500);
+        this->m_latestX = output.first;
+        this->m_latestP = output.second;
+    }
+    catch(const std::exception& e) {
+        // TODO: Log this
+        std::cout << "[ERROR] " << e.what() << std::endl;
+        if (this->m_isKFConfigured) {
+            double lat = this->m_latestX(1, 0);
+            double lon = this->m_latestX(0, 0);
 
-    std::thread service_thread([]() {
-        while (g_running) {
-            sh2_service();
+            if (!std::isfinite(lat) || !std::isfinite(lon)) {
+                this->m_isKFConfigured.store(false);
+                return;
+            }
+
+            this->ConfigureKalmanFilter(lat, lon, GPS_CHI_SQ_LOWER_BOUND, GPS_CHI_SQ_UPPER_BOUND, IMU_CHI_SQ_LOWER_BOUND, IMU_CHI_SQ_UPPER_BOUND);
         }
-    });
+    }
 }
 
+void RadarPositionNavigationController::KFCallbackWithGps(double dt, Vector6d& imuVec, Vector6d& gpsVec) {
+    std::lock_guard<std::mutex> kfStepGuard(this->m_sKFUpdateMutex);
 
+    if (!this->m_isKFConfigured.load()) {
+        return;
+    }
+
+    try {
+        std::pair<Vector6d, Matrix6d> output = this->m_kf.Step(dt, gpsVec, imuVec);
+
+        this->m_latestX = output.first;
+        this->m_latestP = output.second;
+    }
+    catch(const std::exception& e) {
+        // TODO: Log this
+        std::cout << "[ERROR] " << e.what() << std::endl;
+        if (this->m_isKFConfigured) {
+            double lat = this->m_latestX(1, 0);
+            double lon = this->m_latestX(0, 0);
+
+            if (!std::isfinite(lat) || !std::isfinite(lon)) {
+                this->m_isKFConfigured.store(false);
+                return;
+            }
+
+            this->ConfigureKalmanFilter(lat, lon, GPS_CHI_SQ_LOWER_BOUND, GPS_CHI_SQ_UPPER_BOUND, IMU_CHI_SQ_LOWER_BOUND, IMU_CHI_SQ_UPPER_BOUND);
+        }
+    }
+}
+
+void RadarPositionNavigationController::_GPSCallback (const GpsUpdate& gpsUpdate) {
+    IMUManager::UpdateLatestGps(gpsUpdate);
+}
+
+void RadarPositionNavigationController::TotalDestruction() {
+    this->StopRadarPNT();
+
+    std::lock_guard<std::mutex> kfStepGuard(this->m_sKFUpdateMutex);
+
+    if (this->m_isKFConfigured.load()) {
+        this->m_kf.Clean();
+        this->m_isKFConfigured = false;
+    }
+
+    this->m_latestX = Vector6d::Zero();
+    this->m_latestP = Matrix6d::Zero();
+}
