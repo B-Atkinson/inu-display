@@ -6,6 +6,7 @@
 #include <Eigen/Dense>
 #include <functional>
 #include <mutex>
+#include <gtest/gtest_prod.h>
 
 #include "IMUManager.hpp"
 #include "GpsUpdate.hpp"
@@ -148,20 +149,6 @@ private:
      */
     void _GPSCallback (const GpsUpdate& gpsUpdate);
 
-    // /**
-    //  * @brief Calculates Chi SQ statistic.
-    //  * 
-    //  * @param [in] df is the degrees of freedom.
-    //  * @param [in] p is the percentile.
-    //  * 
-    //  * @return Chi SQ statistic - Chi(df, p).
-    //  * 
-    //  * @remarks 
-    //  * 
-    //  * @exception std::runtime_error if the df is out of bounds.
-    //  */
-    // double ChiSquaredQuantile(int df, double p);
-
 private:
     std::atomic<bool> m_sh2ServiceIsRunning;
     std::atomic<bool> m_isKFConfigured;
@@ -173,6 +160,19 @@ private:
     IMUGPSFusionKF_2D_ConstantAcceleration m_kf;
     Vector6d m_latestX;
     Matrix6d m_latestP;
+
+    FRIEND_TEST(RadarPositionNavigationControllerTest, GetGPSCallbackUpdatesLatestGps);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, StartAndConfigureRadarPNTConfiguresKFAndStartsReader);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, StartAndConfigureRadarPNTDoesNotStartReaderWhenOpenFails);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, StopRadarPNTStopsThreadAndClosesSh2Once);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, TotalDestructionStopsReaderCleansKFAndZerosLatestState);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterSetsInitialStateAndCovariance);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterRejectsInvalidPercentiles);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterRejectsLowerPercentileGreaterThanUpperPercentile);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackImuOnlyReturnsWithoutConfiguredKF);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackWithGpsReturnsWithoutConfiguredKF);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackImuOnlyProducesNonFiniteStateBecauseKFUsesSingularR);
+    FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackWithGpsProducesNonFiniteStateBecauseKFUsesSingularR);
 };
 
 #endif // RADAR_POSITION_NAVIGATION_CONTROLLER_HPP
