@@ -108,7 +108,7 @@ private:
      * @remark
      */
     inline bool IsStartEncoder(const unsigned char &byte) {
-        return byte == 0xFF;
+        return byte == 0xA5;
     }
 
     /**
@@ -125,10 +125,10 @@ private:
     inline _IMU_MESSAGE_TYPES_ GetMessageType(const unsigned char &byte) {
         switch (byte)
             {
-            case 0x00:
+            case 0x01:
                 return _IMU_MESSAGE_TYPES_::ACCELERATION;
                 
-            case 0x01:
+            case 0x02:
                 return _IMU_MESSAGE_TYPES_::ROTATION_VECTOR;
             
             default:
@@ -168,15 +168,11 @@ private:
      * @remark
      */
     inline bool ValidateMessage(const unsigned char* messageChecksum, const unsigned char* message, unsigned int messageLen) {
-        unsigned long realChecksum = CalculateCRC16CCITTFalseChecksum(message, messageLen);
+        uint16_t realChecksum = static_cast<uint16_t>(CalculateCRC16CCITTFalseChecksum(message, messageLen) & 0xFFFFu);
 
-        unsigned int receivedChecksum = (messageChecksum[0] << 8) | messageChecksum[1];
+        uint16_t receivedChecksum = static_cast<uint16_t>((static_cast<uint16_t>(messageChecksum[0]) << 8) | static_cast<uint16_t>(messageChecksum[1]));
 
-        if (realChecksum != receivedChecksum) {
-            return false;
-        }
-
-        return true;
+        return realChecksum == receivedChecksum;
     }
 
     /**
@@ -252,12 +248,11 @@ public:
     void Stop();
 
 private:
+    std::shared_ptr<_IMUSerialPort> m_serialPort;
     SerialComService m_serialComService;
 
     std::function<void(std::optional<Raw_RotationVectorWAcc>, std::optional<Raw_Accelerometer>)> m_callback;
     std::atomic<bool> m_hasCallback;
-
-    std::shared_ptr<_IMUSerialPort> m_serialPort;
 };
 
 #endif // IMU_SERIAL_PORT_READER_HPP

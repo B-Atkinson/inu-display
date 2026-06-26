@@ -19,6 +19,10 @@ _IMUSerialPort::~_IMUSerialPort() {
 }
 
 void _IMUSerialPort::Open(const std::string& port) {
+    if (this->m_serial.is_open()) {
+        return;
+    }
+
     this->m_serial.open(port);
 }
 
@@ -27,44 +31,71 @@ void _IMUSerialPort::SetBaudRate(unsigned int rate) {
 }
 
 void _IMUSerialPort::Callback() {
-    unsigned char byte = 0;
+    try {
+        unsigned char message[75] = {};
 
-    this->ReadExact(&byte, 1);
+        this->ReadExact(message, 1);
 
-    if (!this->IsStartEncoder(byte)) {
-        return;
+        if (!this->IsStartEncoder(message[0])) {
+            return;
+        }
+
+        this->ReadExact(message + 1, 2);
+
+        _IMU_MESSAGE_TYPES_ type = this->GetMessageType(message[1]);
+        unsigned int len = this->GetMessageLength(message[2]);
+
+        if (len > sizeof(message) - 5) {
+            return;
+        }
+
+        this->ReadExact(message + 3, len);
+
+        unsigned char checksum[2] = {};
+        this->ReadExact(checksum, 2);
+
+        if (!this->ValidateMessage(checksum, message, 3 + len)) {
+            return;
+        }
+
+        switch (type) {
+            case _IMU_MESSAGE_TYPES_::ACCELERATION: {
+                if (len != sizeof(Raw_Accelerometer)) {
+                    return;
+                }
+
+                Raw_Accelerometer accel = {};
+                std::memcpy(&accel, message + 3, sizeof(accel));
+
+                if (this->m_callback) {
+                    this->m_callback(std::nullopt, accel);
+                }
+
+                return;
+            }
+
+            case _IMU_MESSAGE_TYPES_::ROTATION_VECTOR: {
+                if (len != sizeof(Raw_RotationVectorWAcc)) {
+                    return;
+                }
+
+                Raw_RotationVectorWAcc rot = {};
+                std::memcpy(&rot, message + 3, sizeof(rot));
+
+                if (this->m_callback) {
+                    this->m_callback(rot, std::nullopt);
+                }
+
+                return;
+            }
+
+            default:
+                return;
+        }
     }
-
-    this->ReadExact(&byte, 1);
-    _IMU_MESSAGE_TYPES_ type = this->GetMessageType(byte);
-
-    this->ReadExact(&byte, 1);
-    unsigned int len = this->GetMessageLength(byte);
-
-    std::unique_ptr<unsigned char[]> msg(new unsigned char[len]);
-    this->ReadExact(msg.get(), len);
-
-    unsigned char checksum[2]{};
-    this->ReadExact(checksum, 2);
-
-    if (!this->ValidateMessage(checksum, msg.get(), len)) {
-        return;
+    catch(const std::exception& e) {
+        std::cout << "Callback in IMU com port class threw an exception: " << e.what() << std::endl;
     }
-
-    switch (type) { 
-        case _IMU_MESSAGE_TYPES_::ACCELERATION: { 
-            Raw_Accelerometer accel{}; 
-            std::memcpy(&accel, msg.get(), sizeof(Raw_Accelerometer)); 
-            this->m_callback(std::nullopt, accel); 
-            break; 
-        } 
-        case _IMU_MESSAGE_TYPES_::ROTATION_VECTOR: { 
-            Raw_RotationVectorWAcc rot{}; 
-            std::memcpy(&rot, msg.get(), sizeof(Raw_RotationVectorWAcc)); 
-            this->m_callback(rot, std::nullopt); 
-            break; 
-        } 
-        default: throw std::runtime_error("Unsupported IMU message type"); }
 }
 
 void _IMUSerialPort::ReadExact(unsigned char* data, std::size_t len) {
