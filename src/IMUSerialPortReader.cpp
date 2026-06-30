@@ -45,7 +45,7 @@ void _IMUSerialPort::Callback() {
         _IMU_MESSAGE_TYPES_ type = this->GetMessageType(message[1]);
         unsigned int len = this->GetMessageLength(message[2]);
 
-        if (len > sizeof(message) - 5) {
+        if (len > 73) {
             return;
         }
 

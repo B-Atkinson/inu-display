@@ -101,10 +101,6 @@ static int hal_read(sh2_Hal_t *self, uint8_t *pBuffer, unsigned len, uint32_t *t
         return 0;
     }
 
-    // if (gpio_get_level(s_config.int_pin) != 0) {
-    //     return 0;
-    // }
-
     unsigned read_len = SH2SERVICE_READ_LEN;
 
     if (len < read_len) {
@@ -247,7 +243,6 @@ static void sensor_callback(void *cookie, sh2_SensorEvent_t *event)
     uint8_t acc = value.status & 0x03;
 
     if (acc == 0 || acc == 1) {
-        // printf("Bad status: %d.\n", value.status);
         return;
     }
 

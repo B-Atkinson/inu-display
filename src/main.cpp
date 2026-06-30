@@ -15,6 +15,7 @@ void callback(std::optional<Raw_RotationVectorWAcc> rot, std::optional<Raw_Accel
         std::cout << "ROT: " << rot.value().timestamp << " " << rot.value().i << " " << rot.value().j << " " << rot.value().k << " " << rot.value().accuracy << std::endl;
     }
     else if (acc.has_value()) {
+
         std::cout << "ACC: " << acc.value().timestamp << " " << acc.value().x << " " << acc.value().y << " " << acc.value().z << std::endl;
     }
 }
