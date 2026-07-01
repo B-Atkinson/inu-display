@@ -72,6 +72,10 @@ public:
    */
   void TotalDestruction();
 
+  Vector6d GetLastX() {
+    return m_latestX;
+  }
+
 private:
   /**
    * @brief Sets initial conditions in KF.

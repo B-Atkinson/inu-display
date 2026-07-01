@@ -32,7 +32,7 @@
 // magic (1B) + type (1B) + payloadLen (1B) + payload (N B) + checksum (2B)
 #define ACCELERATION_PAYLOAD_BYTES (3*sizeof(float)+sizeof(uint64_t))
 #define ACCELERATION_MSG_BYTES (1+1+1+ACCELERATION_PAYLOAD_BYTES+2)
-#define ROTATION_PAYLOAD_BYTES (5*sizeof(float)+sizeof(uint64_t)+0)
+#define ROTATION_PAYLOAD_BYTES (5*sizeof(float)+sizeof(uint64_t))
 #define ROTATION_MSG_BYTES (1+1+1+ROTATION_PAYLOAD_BYTES+2)
 
 #define ACCELERATION_T_ID 1

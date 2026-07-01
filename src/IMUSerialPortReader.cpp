@@ -75,11 +75,9 @@ void _IMUSerialPort::Callback() {
             }
 
             case _IMU_MESSAGE_TYPES_::ROTATION_VECTOR: {
-                std::cout << "test1" << std::endl;
                 if (len != sizeof(Raw_RotationVectorWAcc)) {
                     return;
                 }
-                std::cout << "test2" << std::endl;
 
                 Raw_RotationVectorWAcc rot = {};
                 std::memcpy(&rot, message + 3, sizeof(rot));

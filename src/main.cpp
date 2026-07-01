@@ -9,31 +9,28 @@
 #include "utils.hpp"
 #include "SerialComService.hpp"
 #include "IMUSerialPortReader.hpp"
-
-void callback(std::optional<Raw_RotationVectorWAcc> rot, std::optional<Raw_Accelerometer> acc) {
-    if (rot.has_value()) {
-        std::cout << "ROT: " << rot.value().timestamp << " " << rot.value().i << " " << rot.value().j << " " << rot.value().k << " " << rot.value().accuracy << std::endl;
-    }
-    else if (acc.has_value()) {
-
-        std::cout << "ACC: " << acc.value().timestamp << " " << acc.value().x << " " << acc.value().y << " " << acc.value().z << std::endl;
-    }
-}
+#include "DatabaseManager.hpp"
+#include "gps/GpsManager.hpp"
+#include "RadarPositionNavigationController.hpp"
 
 int main(int argc, char** argv) {
     try {
-        IMUSerialPortReader reader("/dev/ttyUSB0", 115200);
+        GpsManager gps = GpsManager();
 
-        reader.InstallVectorCallback(callback);
+        auto database = std::make_shared<DatabaseManager>("./imu.db");
+        RadarPositionNavigationController r = RadarPositionNavigationController(database);
 
-        reader.Start();
+        gps.InstallCallback(r.GetGPSCallback());
+
+        r.StartAndConfigureRadarPNT(30.27433302862909, -97.73442629917186);
 
         std::signal(SIGINT, [](int) {
             std::exit(EXIT_SUCCESS);
         });
 
         while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << r.GetLastX()(0, 0) << " " << r.GetLastX()(1, 0) << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(10));
         }
 
     } catch (const std::exception& e) {
