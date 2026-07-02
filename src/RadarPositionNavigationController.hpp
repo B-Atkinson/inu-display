@@ -7,18 +7,27 @@
 #include <gtest/gtest_prod.h>
 #include <iostream>
 #include <mutex>
+#include <optional>
 
 #include "GpsUpdate.hpp"
+#include "gps/GpsManager.hpp"
 #include "IMUGPSFusionKF.hpp"
 #include "IMUManager.hpp"
 #include "IMUSerialPortReader.hpp"
+#include "SerialPortBase.hpp"
+#include "YamlConfigService.hpp"
+#include "YamlConfig.hpp"
 
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Matrix6d = Eigen::Matrix<double, 6, 6>;
 
 class RadarPositionNavigationController {
 public:
-  RadarPositionNavigationController(std::shared_ptr<DatabaseManager> dbManager);
+  RadarPositionNavigationController(const _KalmanValues& config,
+                                    std::shared_ptr<DatabaseManager> dbManager,
+                                    std::unique_ptr<IMUSerialPortReader> imuSerialPortReader,
+                                    std::unique_ptr<GpsManagerBase> m_gpsManager,
+                                    std::unique_ptr<IMUManager> m_imuManager);
 
   ~RadarPositionNavigationController();
 
@@ -72,11 +81,21 @@ public:
    */
   void TotalDestruction();
 
-  Vector6d GetLastX() {
-    return m_latestX;
-  }
+  /**
+   * @brief Returns PNT running status
+   * 
+   * @return true if running, else false
+   */
+  bool IsRunning() const;
 
 private:
+  /**
+   * @brief Starts the IMU serial reader service if one was constructed.
+   *    Called by StartAndConfigureRadarPNT() to begin feeding data
+   *    from the serial port into IMUManager + the Kalman filter.
+   */
+  void StartIMUReader();
+
   /**
    * @brief Sets initial conditions in KF.
    *
@@ -94,15 +113,15 @@ private:
    * @exception std::runtime_error requires positive non zero df values and percentiles.
    * @exception std::exception KF initialization error.
    */
-  void ConfigureKalmanFilter(
-      double lat0, double lon0, double gpsLowerPercentile, double gpsUpperPercentile, double imuLowerPercentile, double imuUpperPercentile
-  );
+  void ConfigureKalmanFilter(double lat0, double lon0, double gpsLowerPercentile, double gpsUpperPercentile,
+                             double imuLowerPercentile, double imuUpperPercentile);
 
   /**
    * @brief Execute KF with IMU measurement only.
    *
    * @param [in] dt the time delta from the last step to the current time (measurement time).
-   * @param [in] imuVec the IMU measurement vector. This is a column vector of 6 items [null, null, vlon, vlat, alon, alat]^T
+   * @param [in] imuVec the IMU measurement vector. This is a column vector of 6 items [null, null, vlon, vlat, alon,
+   * alat]^T
    *
    * @return
    *
@@ -117,8 +136,10 @@ private:
    * @brief Execute KF with IMU and GPS measurement.
    *
    * @param [in] dt the time delta from the last step to the current time (measurement time).
-   * @param [in] imuVec the IMU measurement vector. This is a column vector of 6 items [null, null, vlon, vlat, alon, alat]^T
-   * @param [in] gpsVec the IMU measurement vector. This is a column vector of 6 items [lon, lat, null, null, null, null]^T
+   * @param [in] imuVec the IMU measurement vector. This is a column vector of 6 items [null, null, vlon, vlat, alon,
+   * alat]^T
+   * @param [in] gpsVec the IMU measurement vector. This is a column vector of 6 items [lon, lat, null, null, null,
+   * null]^T
    *
    * @return
    *
@@ -141,30 +162,36 @@ private:
   void _GPSCallback(const GpsUpdate &gpsUpdate);
 
 private:
-  std::atomic<bool> m_isKFConfigured;
-  std::thread m_serviceThread;
-
-  std::shared_ptr<DatabaseManager> m_dbManager;
-  IMUSerialPortReader m_imuSerialPortReader;
-
-  std::mutex m_kFUpdateMutex;
-  IMUGPSFusionKF_2D_ConstantAcceleration m_kf;
   Vector6d m_latestX;
   Matrix6d m_latestP;
-  IMUManager m_imuManager;
+  std::mutex m_kFUpdateMutex;
+  IMUGPSFusionKF_2D_ConstantAcceleration m_kf;
+  
+  const _KalmanValues& m_config;
+  
+  std::atomic<bool> m_running;
+  std::atomic<bool> m_isKFConfigured;
+
+  std::unique_ptr<GpsManagerBase> m_gpsManager;
+  std::unique_ptr<IMUManager> m_imuManager;
+  std::shared_ptr<DatabaseManager> m_dbManager;
+  std::unique_ptr<IMUSerialPortReader> m_imuSerialPortReader;
+
 
   FRIEND_TEST(RadarPositionNavigationControllerTest, GetGPSCallbackUpdatesLatestGps);
   FRIEND_TEST(RadarPositionNavigationControllerTest, StartAndConfigureRadarPNTConfiguresKFAndStartsReader);
-  FRIEND_TEST(RadarPositionNavigationControllerTest, StartAndConfigureRadarPNTDoesNotStartReaderWhenOpenFails);
-  FRIEND_TEST(RadarPositionNavigationControllerTest, StopRadarPNTStopsThreadAndClosesSh2Once);
+  FRIEND_TEST(RadarPositionNavigationControllerTest, StopRadarPNTStopsThreadAndClosesSerial);
   FRIEND_TEST(RadarPositionNavigationControllerTest, TotalDestructionStopsReaderCleansKFAndZerosLatestState);
   FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterSetsInitialStateAndCovariance);
   FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterRejectsInvalidPercentiles);
-  FRIEND_TEST(RadarPositionNavigationControllerTest, ConfigureKalmanFilterRejectsLowerPercentileGreaterThanUpperPercentile);
+  FRIEND_TEST(RadarPositionNavigationControllerTest,
+              ConfigureKalmanFilterRejectsLowerPercentileGreaterThanUpperPercentile);
   FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackImuOnlyReturnsWithoutConfiguredKF);
   FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackWithGpsReturnsWithoutConfiguredKF);
   FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackImuOnlyProducesNonFiniteStateBecauseKFUsesSingularR);
   FRIEND_TEST(RadarPositionNavigationControllerTest, KFCallbackWithGpsProducesNonFiniteStateBecauseKFUsesSingularR);
+  FRIEND_TEST(RadarPositionNavigationControllerTest, YamlFileParsingForKalmanFilterValuesExpectingTryCatch);
+  FRIEND_TEST(RadarPositionNavigationControllerTest, YamlFileParsingForKalmanFilterValuesExpecting);
 };
 
 #endif // RADAR_POSITION_NAVIGATION_CONTROLLER_HPP
