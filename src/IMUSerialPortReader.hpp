@@ -164,15 +164,15 @@ private:
     std::unique_ptr<SerialComService> m_serialComService;
     std::function<void(std::optional<Raw_RotationVectorWAcc>, std::optional<Raw_Accelerometer>)> m_callback;
 
-    FRIEND_TEST(_IMUSerialPortTest, ValidateCalculateCRC16CCITTFalseChecksum);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateIsStartEncoder);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateGetMessageType);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateGetMessageLength);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateValidateMessage);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateOpen);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateClose);
-    FRIEND_TEST(_IMUSerialPortTest, ValidateConstructor);
-    FRIEND_TEST(_IMUSerialPortTest, CallbackThrowsOnBadMessageType);
+    FRIEND_TEST(IMUSerialPortTest, ValidateCalculateCRC16CCITTFalseChecksum);
+    FRIEND_TEST(IMUSerialPortTest, ValidateIsStartEncoder);
+    FRIEND_TEST(IMUSerialPortTest, ValidateGetMessageType);
+    FRIEND_TEST(IMUSerialPortTest, ValidateGetMessageLength);
+    FRIEND_TEST(IMUSerialPortTest, ValidateValidateMessage);
+    FRIEND_TEST(IMUSerialPortTest, ValidateOpen);
+    FRIEND_TEST(IMUSerialPortTest, ValidateClose);
+    FRIEND_TEST(IMUSerialPortTest, ValidateConstructor);
+    FRIEND_TEST(IMUSerialPortTest, CallbackThrowsOnBadMessageType);
 };
 
 #endif // IMU_SERIAL_PORT_READER_HPP

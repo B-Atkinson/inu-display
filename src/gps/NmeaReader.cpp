@@ -67,8 +67,6 @@ void NmeaReader::Callback(SerialPortBase& serial) {
     std::string line;
     serial.ReadUntil(line, "\n");
 
-    printf("[DEBUG] %s\n", line.c_str());
-
     if (!line.empty() && line[0] == '$') {
         m_nmeaMessage = Parse(line);
         if(m_nmeaMessage.validChecksum == true) {

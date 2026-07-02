@@ -55,7 +55,7 @@ static std::vector<unsigned char> BuildPacket(unsigned char type, const T& paylo
     std::vector<unsigned char> packet;
     packet.resize(1 + 1 + 1 + sizeof(T) + 2);
 
-    packet[0] = 0xFF;
+    packet[0] = 0xA5;
     packet[1] = type;
     packet[2] = static_cast<unsigned char>(sizeof(T));
 
@@ -83,7 +83,7 @@ static std::vector<unsigned char> BuildPacket(unsigned char type, const T& paylo
     return packet;
 }
 
-TEST(_IMUSerialPortTest, ValidateCalculateCRC16CCITTFalseChecksum) {
+TEST(IMUSerialPortTest, ValidateCalculateCRC16CCITTFalseChecksum) {
     IMUSerialPortReader reader(config, std::make_unique<MockSerialPort>());
 
     unsigned char empty[1] = {0x00};
@@ -114,10 +114,10 @@ TEST(_IMUSerialPortTest, ValidateCalculateCRC16CCITTFalseChecksum) {
     EXPECT_EQ(reader.CalculateCRC16CCITTFalseChecksum(sentence, 47), 0xD92CUL);
 }
 
-TEST(_IMUSerialPortTest, ValidateIsStartEncoder) {
+TEST(IMUSerialPortTest, ValidateIsStartEncoder) {
     IMUSerialPortReader reader(config, std::make_unique<MockSerialPort>());
 
-    unsigned char start = 0xFF;
+    unsigned char start = 0xA5;
     unsigned char zero = 0x00;
     unsigned char other = 0x7E;
 
@@ -126,7 +126,7 @@ TEST(_IMUSerialPortTest, ValidateIsStartEncoder) {
     EXPECT_FALSE(reader.IsStartEncoder(other));
 }
 
-TEST(_IMUSerialPortTest, ValidateGetMessageType) {
+TEST(IMUSerialPortTest, ValidateGetMessageType) {
     IMUSerialPortReader reader(config, std::make_unique<MockSerialPort>());
 
     unsigned char accel = 0x00;
@@ -138,7 +138,7 @@ TEST(_IMUSerialPortTest, ValidateGetMessageType) {
     EXPECT_THROW(reader.GetMessageType(bad), std::runtime_error);
 }
 
-TEST(_IMUSerialPortTest, ValidateGetMessageLength) {
+TEST(IMUSerialPortTest, ValidateGetMessageLength) {
     IMUSerialPortReader reader(config, std::make_unique<MockSerialPort>());
 
     unsigned char zero = 0x00;
@@ -150,7 +150,7 @@ TEST(_IMUSerialPortTest, ValidateGetMessageLength) {
     EXPECT_EQ(reader.GetMessageLength(max), 255u);
 }
 
-TEST(_IMUSerialPortTest, ValidateValidateMessage) {
+TEST(IMUSerialPortTest, ValidateValidateMessage) {
     IMUSerialPortReader reader(config, std::make_unique<MockSerialPort>());
 
     unsigned char payload[9] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -161,7 +161,7 @@ TEST(_IMUSerialPortTest, ValidateValidateMessage) {
     EXPECT_FALSE(reader.ValidateMessage(badChecksum, payload, 9));
 }
 
-TEST(_IMUSerialPortTest, CallbackIgnoresNonStartByte) {
+TEST(IMUSerialPortTest, CallbackIgnoresNonStartByte) {
     bool called = false;
     std::vector<unsigned char> bytes = {0x7E};
 
@@ -182,7 +182,7 @@ TEST(_IMUSerialPortTest, CallbackIgnoresNonStartByte) {
     EXPECT_FALSE(called);
 }
 
-TEST(_IMUSerialPortTest, CallbackReadsAccelerationPacket) {
+TEST(IMUSerialPortTest, CallbackReadsAccelerationPacket) {
     Raw_Accelerometer expected{};
     std::memset(&expected, 0x11, sizeof(expected));
     auto packet = BuildPacket(0x00, expected);
@@ -214,7 +214,7 @@ TEST(_IMUSerialPortTest, CallbackReadsAccelerationPacket) {
     EXPECT_EQ(std::memcmp(&expected, &receivedAccel.value(), sizeof(Raw_Accelerometer)), 0);
 }
 
-TEST(_IMUSerialPortTest, CallbackReadsRotationPacket) {
+TEST(IMUSerialPortTest, CallbackReadsRotationPacket) {
     Raw_RotationVectorWAcc expected{};
     std::memset(&expected, 0x22, sizeof(expected));
     auto packet = BuildPacket(0x01, expected);
@@ -245,7 +245,7 @@ TEST(_IMUSerialPortTest, CallbackReadsRotationPacket) {
     EXPECT_EQ(std::memcmp(&expected, &receivedRot.value(), sizeof(Raw_RotationVectorWAcc)), 0);
 }
 
-TEST(_IMUSerialPortTest, CallbackRejectsBadChecksum) {
+TEST(IMUSerialPortTest, CallbackRejectsBadChecksum) {
     Raw_Accelerometer payload{};
     std::memset(&payload, 0x33, sizeof(payload));
     auto packet = BuildPacket(0x00, payload);
@@ -270,9 +270,9 @@ TEST(_IMUSerialPortTest, CallbackRejectsBadChecksum) {
     EXPECT_FALSE(called);
 }
 
-TEST(_IMUSerialPortTest, CallbackThrowsOnBadMessageType) {
+TEST(IMUSerialPortTest, CallbackThrowsOnBadMessageType) {
     
-    std::vector<unsigned char> packet = {0xFF, 0x02};
+    std::vector<unsigned char> packet = {0xA5, 0x02};
 
     auto port = std::make_unique<MockSerialPort>();
     port->m_data = packet;

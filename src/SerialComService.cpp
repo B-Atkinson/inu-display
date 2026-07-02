@@ -22,7 +22,7 @@ SerialComService::SerialComService(std::string path,
         #else
             str = "/dev/...";
         #endif
-        throw std::invalid_argument("The serial port is invalid. Path should be " + str + " with no space");
+        throw std::invalid_argument("The serial port: " + path + ", is invalid. Path should be " + str + " with no space");
     }
     ConfigureSerialPort();
 }

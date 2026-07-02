@@ -10,7 +10,6 @@
 #include <optional>
 
 #include "GpsUpdate.hpp"
-#include "gps/GpsManager.hpp"
 #include "IMUGPSFusionKF.hpp"
 #include "IMUManager.hpp"
 #include "IMUSerialPortReader.hpp"
@@ -26,7 +25,6 @@ public:
   RadarPositionNavigationController(const _KalmanValues& config,
                                     std::shared_ptr<DatabaseManager> dbManager,
                                     std::unique_ptr<IMUSerialPortReader> imuSerialPortReader,
-                                    std::unique_ptr<GpsManagerBase> m_gpsManager,
                                     std::unique_ptr<IMUManager> m_imuManager);
 
   ~RadarPositionNavigationController();
@@ -172,7 +170,6 @@ private:
   std::atomic<bool> m_running;
   std::atomic<bool> m_isKFConfigured;
 
-  std::unique_ptr<GpsManagerBase> m_gpsManager;
   std::unique_ptr<IMUManager> m_imuManager;
   std::shared_ptr<DatabaseManager> m_dbManager;
   std::unique_ptr<IMUSerialPortReader> m_imuSerialPortReader;

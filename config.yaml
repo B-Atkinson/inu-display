@@ -11,6 +11,6 @@ kalman_values:
   q_l: 10
 
 imu_serial_port:
-  path: \\COM1
-  baud_rate: 460800
+  path: /dev/ttyUSB0
+  baud_rate: 115200
   

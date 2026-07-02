@@ -223,8 +223,6 @@ private:
     mutable std::mutex m_gpsMutex;         // Mutex used when m_latestGps is read/written
     IMUUtils::KineticState m_kineticState; // Internal KineticState data state
 
-    IMUManagerStats m_stats; // Internal IMUManagerStats data state, holds accepted and rejected incoming IMU and Gps data
-
   MagneticDeclination m_magneticDeclination;          // MagneticDeclination member used to calculate declination angle in BuildImuMeasurementVector()
   std::shared_ptr<DatabaseManager> m_databaseManager; // shared ptr to DatabaseManager used to store incoming data persistently
 

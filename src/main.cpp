@@ -16,25 +16,28 @@
 #include "RadarPositionNavigationController.hpp"
 #include "YamlConfigService.hpp"
 
+std::atomic<bool> keepRunning = true;
+
 int main(int argc, char** argv) {
     try {
         GpsManager gps = GpsManager();
 
-        YamlConfigService yamlConfigService("config.yaml");
+        YamlConfigService yamlConfigService("/home/user/workspace/IMU-Test-Harness/build/config.yaml");
         const auto config = yamlConfigService.GetConfig();
-        std::cout << "[INFO] Yaml" << std::endl << config.ToString() << std::endl;
 
         auto databaseManager = std::make_shared<DatabaseManager>("./IMUPROC_tests.db");
         auto imuSerialPortReader = std::make_unique<IMUSerialPortReader>(config.imuSerialPort,
                                                                          std::make_unique<BoostSerialPort>());
         auto imuManager = std::make_unique<IMUManager>(databaseManager);
-        auto gpsManager = std::make_unique<GpsManagerBase>();
 
         RadarPositionNavigationController radarPositionNavigationController(config.kalmanValues,
                                                                             databaseManager,
                                                                             std::move(imuSerialPortReader),
-                                                                            std::move(gpsManager),
                                                                             std::move(imuManager));
+
+        gps.InstallCallback(radarPositionNavigationController.GetGPSCallback());
+
+        gps.Start();
 
         radarPositionNavigationController.StartAndConfigureRadarPNT(0, 0);
         

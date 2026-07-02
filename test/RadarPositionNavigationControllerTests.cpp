@@ -37,11 +37,9 @@ namespace {
 #define SET_UP()  std::shared_ptr<DatabaseManager> databaseManager = std::make_shared<DatabaseManager>("./IMUPROC_tests.db"); \
                   auto imuSerialPortReader = std::make_unique<IMUSerialPortReader>(imuSerialPortConfig, std::make_unique<MockSerialPort>()); \
                   auto imuManager = std::make_unique<IMUManager>(databaseManager); \
-                  auto gpsManager = std::make_unique<GpsManagerBase>(); \
                   RadarPositionNavigationController radarPositionNavigationController(kalmanValuesConfig, \
                                                                                       databaseManager, \
                                                                                       std::move(imuSerialPortReader), \
-                                                                                      std::move(gpsManager), \
                                                                                       std::move(imuManager));
 
 class MockSerialPort : public SerialPortBase {};
